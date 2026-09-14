@@ -70,6 +70,17 @@ Reports are scrubbed (OS + reason + version only, nothing else) and open in
 GitHub Issues of the **private** report repository. No details are sent without
 your review.
 
+## Troubleshooting
+
+- **`Could not load the Qt platform plugin "xcb"`** — the Qt GUI is missing a
+  system library (most often `libxcb-cursor0` on Qt 5.15). On Ubuntu/Mint:
+
+  ```bash
+  sudo apt install -y libxcb-cursor0 libxkbcommon-x11-0
+  ```
+
+  `setup.sh` detects and offers this automatically during install.
+
 ## License
 
 See `EULA.txt` shipped with the app.

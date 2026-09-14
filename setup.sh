@@ -84,6 +84,79 @@ pip install --upgrade pip -q
 pip install -r "$REQ_FILE" -q
 info "Dependencies installed"
 
+# --- Qt xcb system prerequisites (Linux) -----------------------------------
+# PyQt5's xcb platform plugin needs a handful of SYSTEM libraries (the wheel
+# only bundles the plugin itself). The notorious one on fresh Ubuntu/Mint is
+# `libxcb-cursor0` (Qt 5.15.4+); `libxkbcommon-x11-0` is commonly missing too.
+# We diff the installed plugin's dynamic deps against ldconfig and offer to
+# install exactly what's missing, so a fresh install never hits the
+# "Could not load the Qt platform plugin xcb" failure.
+detect_pm() {
+    if command -v apt-get >/dev/null 2>&1; then echo apt
+    elif command -v dnf      >/dev/null 2>&1; then echo dnf
+    elif command -v pacman   >/dev/null 2>&1; then echo pacman
+    elif command -v zypper   >/dev/null 2>&1; then echo zypper
+    else echo ""; fi
+}
+
+qt_pkg_apt() {  # library name -> apt package (empty = no known mapping)
+    case "$1" in
+        libxcb-cursor.so.0)       echo "libxcb-cursor0" ;;
+        libxkbcommon-x11.so.0)    echo "libxkbcommon-x11-0" ;;
+        libxcb-icccm.so.4)        echo "libxcb-icccm4" ;;
+        libxcb-image.so.0)        echo "libxcb-image0" ;;
+        libxcb-keysyms.so.1)      echo "libxcb-keysyms1" ;;
+        libxcb-render-util.so.0)  echo "libxcb-render-util0" ;;
+        libxcb-shape.so.0)        echo "libxcb-shape0" ;;
+        libxcb-xkb.so.1)          echo "libxcb-xkb1" ;;
+        libxcb-xinerama.so.0)     echo "libxcb-xinerama0" ;;
+        libx11-xcb.so.1)          echo "libx11-xcb1" ;;
+        libEGL.so.1)              echo "libegl1" ;;
+        libGL.so.1)               echo "libgl1" ;;
+        *) echo "" ;;
+    esac
+}
+
+qt_check_system_libs() {
+    [ "$PLATFORM" = "linux" ] || return 0
+    command -v ldd >/dev/null 2>&1 || { warn "ldd not found — skipping Qt system-lib check"; return 0; }
+    plugin="$(find "$VENV_DIR" -path '*/Qt5/plugins/platforms/libqxcb.so' 2>/dev/null | head -1)"
+    [ -n "$plugin" ] || { info "Qt platform plugin not found — skipping system-lib check"; return 0; }
+    mapfile -t missing < <(ldd "$plugin" 2>/dev/null | sed -n 's/=> not found$//p' | awk '{print $1}' | sort -u)
+    [ "${#missing[@]}" -eq 0 ] && { info "Qt xcb platform dependencies present"; return 0; }
+
+    warn "PyQt5's xcb platform plugin needs these system libraries, which are missing:"
+    printf '     %s\n' "${missing[@]}"
+    pm="$(detect_pm)"
+    if [ "$pm" = "apt" ]; then
+        apt_list=()
+        for lib in "${missing[@]}"; do
+            p="$(qt_pkg_apt "$lib")"
+            [ -n "$p" ] && apt_list+=("$p")
+        done
+        if [ "${#apt_list[@]}" -gt 0 ]; then
+            read -r -p "Install now with sudo apt-get (${apt_list[*]})? [Y/n] " ans < /dev/tty
+            case "${ans:-Y}" in
+                y|Y|yes)
+                    sudo apt-get install -y "${apt_list[@]}" >/dev/null || {
+                        warn "apt-get install failed — install these manually:"; printf '     sudo apt-get install %s\n' "${apt_list[*]}"; }
+                    ;;
+                *) info "Skipped (you can install later: sudo apt-get install ${apt_list[*]})" ;;
+            esac
+        fi
+    fi
+    # re-check after any install; else give a portable hint
+    leftover="$(ldd "$plugin" 2>/dev/null | sed -n 's/=> not found$//p' | awk '{print $1}' | sort -u | wc -l)"
+    if [ "$leftover" -gt 0 ] && [ "$pm" != "apt" ]; then
+        warn "Your package manager isn't apt — install the equivalents of:"
+        warn "  apt: libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-keysyms1"
+        warn "  dnf: libxcb-cursor libxkbcommon-x11 xcb-util-wm xcb-util-keysyms"
+        warn "  pacman: xcb-util-cursor xcb-util-keysyms xcb-util-wm libxkbcommon-x11"
+    fi
+}
+
+qt_check_system_libs
+
 # --- Make run.sh executable ------------------------------------------------
 chmod +x "$APP_DIR/run.sh"
 info "run.sh is executable"
