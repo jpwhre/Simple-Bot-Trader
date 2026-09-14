@@ -1,0 +1,26 @@
+END USER LICENSE AGREEMENT — Simple Bot Trader
+
+Trading involves substantial risk; this is not financial advice.
+
+A brief function: a desktop app that uses YOUR exchange account and the
+exchange's official API to trade one pair per bot — dip-bounce buys,
+trailing-stop exits, optional DCA, and optional limit (maker/taker) orders —
+with three holding modes: Keep separate (never touches coins the bot didn't
+buy), Combine (manage the whole holding), and Auto-invest takeover (buys dips
+only, never auto-sells — you exit via Force Close).
+
+Your account, your keys — NEVER Transfer. The app needs only READ and TRADE
+on your API key. NEVER use an API key with Transfer here.
+
+Privacy — runs on your device, no cloud. No telemetry/analytics/usage pings/
+account. The only data leaving your device: (1) the app's API traffic with the
+exchange you chose (your account, your key), and (2) — only if you opt in (both
+OFF by default) — a metadata-only version check and a scrubbed crash/error
+report (operating system + reason + app version ONLY: no keys, no balances, no
+transaction details, no language).
+
+No warranty / AS-IS; you trade real money at your own risk; use an exchange
+licensed for you; secure your machine and keys; you are responsible for taxes.
+
+Tested live on real markets with the developer's own real funds — real trades,
+real fees, real fills. Not a paper-trading demo.

@@ -1,0 +1,22 @@
+/* Light theme — used when the desktop prefers a light appearance. */
+QMainWindow, QDialog { background-color: #f5f5f5; color: #222; }
+QLabel { color: #222; font-size: 13px; }
+QPushButton { background: #e0e0e0; color: #222; border: 1px solid #bbb; padding: 3px 12px; border-radius: 4px; min-height: 16px; }
+QPushButton:hover { background: #d5d5d5; }
+QPushButton:pressed { background: #c8c8c8; }
+QTextEdit, QLineEdit { background: #ffffff; color: #222; border: 1px solid #ccc; border-radius: 3px; spacing: 2px; }
+QTextEdit { font-family: "Consolas", "Courier New", monospace; font-size: 13px; }
+QDoubleSpinBox, QSpinBox { background: #ffffff; color: #222; border: 1px solid #ccc; border-radius: 3px; padding: 2px; }
+QCheckBox { color: #222; spacing: 6px; }
+QCheckBox::indicator { width: 16px; height: 16px; image: url(indicator_unchecked.png); }
+QCheckBox::indicator:checked { image: url(indicator_checked_light.png); }
+QFormLayout { spacing: 8px; }
+#statusLabel { font-size: 16px; font-weight: bold; color: #00a84c; }
+#priceLabel { font-size: 18px; font-weight: bold; color: #b06000; }
+#pnlLabel { font-size: 14px; font-weight: bold; }
+#connLabel { font-size: 12px; color: #777; }
+#positionFrame { background: #ececec; border: 1px solid #ccc; border-radius: 4px; padding: 6px; }
+#logArea { background: #ffffff; color: #333; }
+#stopBar { min-height: 20px; background: #ddd; border-radius: 3px; }
+#balanceBar { background: #e0e0e0; color: #00a84c; border: 1px solid #bbb; border-radius: 4px; font-weight: bold; }
+#pnlBar { background: #ececec; border: 1px solid #ccc; border-radius: 4px; }
