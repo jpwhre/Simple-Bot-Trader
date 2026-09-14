@@ -25,7 +25,7 @@ if %ERRORLEVEL% equ 0 (
         set MINOR=%%b
     )
     if !MAJOR! geq 3 (
-        if !MINOR! geq 8 (
+        if !MINOR! geq 9 (
             set PYTHON=python
         )
     )
@@ -40,7 +40,7 @@ if %ERRORLEVEL% equ 0 (
             set MINOR=%%b
         )
         if !MAJOR! geq 3 (
-            if !MINOR! geq 8 (
+            if !MINOR! geq 9 (
                 set PYTHON=python3
             )
         )
@@ -48,7 +48,7 @@ if %ERRORLEVEL% equ 0 (
 )
 
 if not defined PYTHON (
-    echo [FAIL] Python 3.8+ is required but not found.
+    echo [FAIL] Python 3.9+ is required but not found.
     echo.
     echo Install Python from: https://www.python.org/downloads/
     echo   - Check "Add Python to PATH" during installation.

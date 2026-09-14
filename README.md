@@ -54,7 +54,7 @@ cd ~/Simple-Bot-Trader
 ./run.sh --config-dir ~/other-bot   # isolated profile = separate exchange
 ```
 
-Requirements: Python 3.8+.
+Requirements: Python 3.9+ (current released Python, including 3.14, is supported).
 
 ## Updates
 

@@ -29,14 +29,19 @@ esac
 echo "Detected platform: $PLATFORM"
 
 # --- Python check ----------------------------------------------------------
+# Supported: Python 3.9+ (current released Python incl. 3.14 works; the
+# requirements pins gate coincurve off on >= 3.14 exactly like ccxt does).
+# Prefer the interpreter the release was validated on, then any >= 3.9.
 PYTHON=""
-for cmd in python3 python; do
+PYVER=""
+for cmd in python3.12 python3.13 python3.11 python3.10 python3 python; do
     if command -v "$cmd" >/dev/null 2>&1; then
         ver=$("$cmd" --version 2>&1 | awk '{print $2}')
         major=$(echo "$ver" | cut -d. -f1)
         minor=$(echo "$ver" | cut -d. -f2)
-        if [ "$major" -ge 3 ] && [ "$minor" -ge 8 ]; then
+        if [ "$major" -ge 3 ] && [ "$minor" -ge 9 ]; then
             PYTHON="$cmd"
+            PYVER="$ver"
             break
         fi
     fi
@@ -44,16 +49,23 @@ done
 
 if [ -z "$PYTHON" ]; then
     echo ""
-    fail "Python 3.8+ is required but not found.\n
+    fail "Python 3.9+ is required but not found.\n
   Install Python:
     Linux:  sudo apt install python3 python3-venv python3-pip   (Debian/Ubuntu)
             sudo dnf install python3 python3-pip                (Fedora)
     macOS:  brew install python3    (Homebrew)
             https://www.python.org/downloads/"
 fi
-info "Found $PYTHON ($($PYTHON --version 2>&1))"
+info "Found $PYTHON ($PYVER)"
 
 # --- Virtual environment ---------------------------------------------------
+if [ -d "$VENV_DIR" ] && [ -x "$VENV_DIR/bin/python" ]; then
+    OLD_VER="$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}' || true)"
+    if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$PYVER" ]; then
+        echo "Existing venv was built with Python $OLD_VER; selected is $PYVER. Recreating..."
+        rm -rf "$VENV_DIR"
+    fi
+fi
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment..."
     $PYTHON -m venv "$VENV_DIR"

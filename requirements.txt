@@ -5,7 +5,7 @@
 
 # --- app direct dependencies ------------------------------------------------
 PyQt5==5.15.10
-PyQt5-sip==12.13.0
+PyQt5-sip==12.18.0
 PyJWT==2.13.0            # Coinbase Advanced Trade JWT signing
 websocket-client==1.9.0  # Coinbase price feed
 cryptography==49.0.0     # encrypted key storage (keys.enc) + provider signing
@@ -13,6 +13,12 @@ requests==2.34.2         # Coinbase HTTP API
 ccxt==4.5.70             # multi-exchange abstraction (Kraken/Binance/... via CCXT)
 
 # --- ccxt runtime dependency closure (resolved on the tested build) ---------
+# Current Python (3.14) is supported: pin fixes below match ccxt 4.5.70's own
+# environment markers, so a fresh venv installs wheels-only on CPython 3.14.
+#   * coincurve is gated OFF on >= 3.14 (ccxt does the same; coincurve has no
+#     cp314 wheels yet). The app never imports it — Coinbase uses `cryptography`.
+#   * pyqt5-sip bumped to 12.18.0 so it has cp314 wheels (still satisfies
+#     PyQt5's `>=12.13,<13` requirement).
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.1
 aiohttp-fast-zlib==0.3.0
@@ -21,7 +27,7 @@ attrs==26.1.0
 certifi==2026.6.17
 cffi==2.0.0
 charset-normalizer==3.4.7
-coincurve==21.0.0
+coincurve==21.0.0; python_version < "3.14"
 frozenlist==1.8.0
 idna==3.18
 multidict==6.7.1
