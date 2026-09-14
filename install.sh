@@ -17,7 +17,6 @@ OWNER="jpwhre"
 REPO="Simple-Bot-Trader"
 ASSET_PREFIX="simple-bot-trader-"
 API="https://api.github.com/repos/${OWNER}/${REPO}"
-DL="https://github.com/${OWNER}/${REPO}/releases/download"
 PUBKEY_HEX="7debae06d485554131770feefffc9b706dcf2e8f609f68444656e653f4e759b5"
 
 DEFAULT_DIR="${HOME}/Simple-Bot-Trader"
