@@ -157,6 +157,18 @@ qt_check_system_libs() {
 
 qt_check_system_libs
 
+# --- Return-to-state autostart (Linux systemd / macOS LaunchAgent) ----------
+# Reopens the bot after a reboot/login IF it was running when the machine went
+# down (main.py --if-was-launched + launched.marker). Linux needs a logged-in
+# user session (auto-login) to fire at boot; otherwise it fires at login.
+if [ "$PLATFORM" = "linux" ] || [ "$PLATFORM" = "macos" ]; then
+    if "$VENV_DIR/bin/python" -c 'from sbt import autorun; autorun.enable_all()' 2>/dev/null; then
+        info "Return-to-state autostart enabled ($PLATFORM)"
+    else
+        warn "Autostart could not be enabled — the bot reopens at next login only if the OS autostart is configured."
+    fi
+fi
+
 # --- Make run.sh executable ------------------------------------------------
 chmod +x "$APP_DIR/run.sh"
 info "run.sh is executable"

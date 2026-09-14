@@ -111,6 +111,33 @@ if exist "%SHORTCUT_DIR%\%APP_NAME%.lnk" (
 )
 echo.
 
+REM --- Startup shortcut (return-to-state: reopen at login if it was running) --
+echo Creating startup shortcut...
+set STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+set STARTUP_VBS=%TEMP%\create_startup.vbs
+
+(
+    echo Set oWS = WScript.CreateObject^("WScript.Shell"^)
+    echo sLinkFile = "%STARTUP_DIR%\%APP_NAME%.lnk"
+    echo Set oLink = oWS.CreateShortcut^(sLinkFile^)
+    echo oLink.TargetPath = "%VENV_DIR%\Scripts\pythonw.exe"
+    echo oLink.Arguments = "%APP_DIR%main.py --if-was-launched"
+    echo oLink.WorkingDirectory = "%APP_DIR%"
+    echo oLink.Description = "%APP_NAME% auto-reopen"
+    echo oLink.WindowStyle = 7
+    echo oLink.Save
+) > "%STARTUP_VBS%"
+
+cscript /nologo "%STARTUP_VBS%" >nul 2>&1
+del "%STARTUP_VBS%" >nul 2>&1
+
+if exist "%STARTUP_DIR%\%APP_NAME%.lnk" (
+    echo [OK] Startup shortcut created
+) else (
+    echo [WARN] Could not create startup shortcut (non-critical)
+)
+echo.
+
 REM --- Done ----------------------------------------------------------------
 echo ============================================
 echo   Setup complete!

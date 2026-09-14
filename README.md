@@ -56,6 +56,32 @@ cd ~/Simple-Bot-Trader
 
 Requirements: Python 3.9+ (current released Python, including 3.14, is supported).
 
+**Why a virtual environment?** The installer builds a private `venv/` folder next
+to the app. Modern Linux/macOS block `pip install` to the system Python
+(PEP-668 "externally managed"), and the bot pins exact dependency versions that
+must not collide with other software. `run.sh` uses the venv automatically —
+there is nothing extra to activate.
+
+## Autostart & the "remote" lock
+
+- **Return-to-state:** the installer enables OS autostart (Linux systemd, macOS
+  LaunchAgent, Windows Startup folder). After a reboot, the bot reopens itself
+  **if it was running when the machine went down** (it never pops open a bot you
+  had closed). These autostart hooks run at **login**; Linux/macOS boot-time
+  relaunch additionally needs a desktop session with **auto-login** (common on a
+  dedicated bot box). A power loss mid-run is fine — the app resumes from the
+  exchange (API cost basis).
+- **Remote-desktop lock:** the bot refuses to trade when it detects it was
+  started from a remote session (SSH/X11, RDP, VNC…) — a safety gate against a
+  hijacked or unlocked remote session. When launched normally in a **local**
+  session (or by the autostart hooks above), it trades freely and the gate stays
+  intact for later remote access. `SBT_ALLOW_REMOTE=1` disables this gate — only
+  set it on a machine you fully trust, and understand it then also protects you
+  from nothing when someone else controls that box remotely.
+- **A virtual environment is NOT a "remote".** The venv is just an isolated
+  dependencies folder on disk; it has no effect on the remote-detection/blocking
+  logic.
+
 ## Updates
 
 - **In-app:** the bot checks GitHub for new signed releases (opt-out enabled for
@@ -80,6 +106,13 @@ your review.
   ```
 
   `setup.sh` detects and offers this automatically during install.
+
+- **Account Balance shows 0 (with the price feed "connected")** — the price
+  feed is public, but balances need a *signed* API call. A zero balance with a
+  connected websocket usually means the stored Coinbase key is invalid (the
+  app now validates keys when you save, and shows "API key error — re-add").
+  Fix: **Settings → Add API → Load from file…** and pick the downloaded
+  `cdp_api_key_<name>.json` — the name and key fill in automatically.
 
 ## License
 

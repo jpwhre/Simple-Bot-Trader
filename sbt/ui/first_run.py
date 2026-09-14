@@ -8,6 +8,7 @@ browser AFTER showing the "NEVER use API with Transfer" reminder:
 Then the credential fields collect the key material (coinbase: API Key Name +
 Private Key PEM; any other exchange via CCXT: API Key / Secret / Password).
 """
+import json
 import os
 import re
 import webbrowser
@@ -72,11 +73,35 @@ _PEM_RE = re.compile(
     r'-----BEGIN ([A-Z ]*PRIVATE KEY)-----.*?-----END \1-----', re.S)
 _KEY_NAME_RE = re.compile(r'organizations/[A-Za-z0-9_./\-]+')
 
+# Field names found in the JSON files exchanges let you DOWNLOAD (Coinbase
+# downloads `cdp_api_key_<name>.json` with "name" + "privateKey").
+_PEM_FIELDS = ('privateKey', 'private_key', 'pem', 'key_pem')
+_NAME_FIELDS = ('name', 'apiKeyName', 'keyName', 'key_name')
+_KEY_FIELDS = ('apiKey', 'api_key', 'key')
+_SECRET_FIELDS = ('secret', 'apiSecret', 'api_secret', 'secretKey')
+
+
+def _normalize_pem(text):
+    """Turn escaped newlines that survive a copied JSON value (`\\n` and `\\r`)
+    into the real newlines `cryptography` needs to parse the PEM block."""
+    s = (text or '').strip().replace('\\r', '\r').replace('\\n', '\n')
+    return s.strip()
+
 
 def _extract_pem(text):
     """The PEM private-key block inside downloaded/copied text (Coinbase)."""
     m = _PEM_RE.search(text or '')
     return m.group(0) if m else ''
+
+
+def _valid_pem(pem):
+    """True when the text parses as a private-key PEM (Coinbase EC key)."""
+    try:
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        load_pem_private_key(_normalize_pem(pem).encode('utf-8'), password=None)
+        return True
+    except Exception:
+        return False
 
 
 def _extract_pair(text):
@@ -254,13 +279,45 @@ class FirstRunDialog(QDialog):
 
     def _fill_from_text(self, text):
         """Fill the credential fields from a downloaded key file or copied text.
-        A PEM block (Coinbase) goes into the private-key box (and the key name
-        is extracted); otherwise a 'Key / Secret' pair fills the CCXT fields."""
+
+        Order of attempts:
+          1. JSON (exchanges download JSON key files, e.g. Coinbase's
+             `cdp_api_key_<name>.json` with "name" + "privateKey") — parsed
+             structurally so escaped `\\n` inside the PEM is handled correctly.
+          2. A raw PEM block anywhere in the text (+ key name extraction).
+          3. A 'Key / Secret' pair (newline/comma separated) for CCXT.
+          4. A bare token as a CCXT API key.
+        """
         text = text or ''
+        try:
+            obj = json.loads(text)
+            if isinstance(obj, dict):
+                pem = next((_normalize_pem(obj.get(k)) for k in _PEM_FIELDS
+                            if isinstance(obj.get(k), str) and _extract_pem(obj.get(k))), '')
+                name = next((str(obj.get(k)).strip() for k in _NAME_FIELDS
+                             if obj.get(k)), '')
+                if pem:
+                    self.exchange_combo.setCurrentText('coinbase')
+                    self.private_key_edit.setPlainText(pem)
+                    if name:
+                        self.api_key_name_edit.setText(name)
+                    return
+                ckey = next((str(obj.get(k)).strip() for k in _KEY_FIELDS
+                             if obj.get(k)), '')
+                csec = next((str(obj.get(k)).strip() for k in _SECRET_FIELDS
+                             if obj.get(k)), '')
+                if ckey:
+                    self.ccxt_key_edit.setText(ckey)
+                    if csec:
+                        self.ccxt_secret_edit.setText(csec)
+                    return
+        except Exception:
+            pass  # not JSON — fall through to regex/line parsing
+
         pem = _extract_pem(text)
         if pem:
             self.exchange_combo.setCurrentText('coinbase')
-            self.private_key_edit.setPlainText(pem)
+            self.private_key_edit.setPlainText(_normalize_pem(pem))
             m = _KEY_NAME_RE.search(text)
             if m:
                 self.api_key_name_edit.setText(m.group(0))
@@ -277,14 +334,27 @@ class FirstRunDialog(QDialog):
     def _on_save(self):
         exchange = self._exchange()
         name = self.api_key_name_edit.text().strip()
-        pem = self.private_key_edit.toPlainText().strip()
+        pem = _normalize_pem(self.private_key_edit.toPlainText())
         ckey = self.ccxt_key_edit.text().strip()
         csec = self.ccxt_secret_edit.text().strip()
         cpass = self.ccxt_password_edit.text().strip()
-        if exchange == 'coinbase' and (not name or not pem):
-            QMessageBox.warning(self, 'Missing Credentials',
-                                'Coinbase needs the API Key Name and the Private Key PEM.')
-            return
+        if exchange == 'coinbase':
+            if not name or not pem:
+                QMessageBox.warning(self, 'Missing Credentials',
+                                    'Coinbase needs the API Key Name and the Private Key PEM.')
+                return
+            if not _valid_pem(pem):
+                QMessageBox.warning(
+                    self, 'Invalid Private Key',
+                    'That Private Key does not parse as a valid PEM key.\n\n'
+                    'Coinbase keys look like:\n'
+                    '-----BEGIN EC PRIVATE KEY-----\n'
+                    'MIGEAgEBA...\n'
+                    '-----END EC PRIVATE KEY-----\n\n'
+                    'Use "Load from file…" on the downloaded cdp_api_key_<name>.json '
+                    '— the name and key fill in automatically.')
+                return
+            self.private_key_edit.setPlainText(pem)
         keys.save_keys(name, pem, ccxt_api_key=ckey, ccxt_secret=csec, ccxt_password=cpass)
         cur = load_settings()
         cur['exchange'] = exchange

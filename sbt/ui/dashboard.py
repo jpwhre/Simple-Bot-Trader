@@ -385,7 +385,11 @@ class DashboardWidget(QFrame):
                 bal_str = f"{sym}{self._cached_balance:.2f}" if len(sym) <= 2 else f"{self._cached_balance:.2f}"
                 self._balance_lbl.setText(f"Account Balance: {bal_str} {qc}")
         except Exception:
-            pass
+            # The balance read is AUTHENTICATED (signed JWT). A persistent
+            # failure means an invalid/empty API key — surface it instead of
+            # silently showing $0.00 (user report 2026-09-14, MalformedFraming).
+            if self._cached_balance is None:
+                self._balance_lbl.setText('Account Balance: -- (API key error — re-add in Settings)')
 
         # balance bar never changes color with the trade — fixed themed style
         # (set once in _setup_ui); nothing overrides it here.
