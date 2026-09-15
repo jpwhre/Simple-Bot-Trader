@@ -12,6 +12,14 @@
 #   bash install.sh --update                     # refresh an existing install
 set -euo pipefail
 
+# A terminal whose current directory was deleted can't resolve "." (bash prints
+# "getcwd: cannot access parent directories" at launch and keeps going). Park on
+# stable ground so every path in this script stays absolute; nothing here
+# depends on the caller's directory, so this is purely a safety align.
+if ! cd . >/dev/null 2>&1; then
+  cd /tmp 2>/dev/null || cd / 2>/dev/null || true
+fi
+
 # ==== SHIP-TIME CONFIG (matches sbt/auto_update.py) ====
 OWNER="jpwhre"
 REPO="Simple-Bot-Trader"

@@ -98,6 +98,10 @@ your review.
 
 ## Troubleshooting
 
+- **`getcwd: cannot access parent directories`** at install — your terminal was
+  parked in a folder that was deleted before you ran the command. Harmless (the
+  installer uses absolute paths); `cd ~` clears it if the message bothers you.
+
 - **`Could not load the Qt platform plugin "xcb"`** — the Qt GUI is missing a
   system library (most often `libxcb-cursor0` on Qt 5.15). On Ubuntu/Mint:
 
