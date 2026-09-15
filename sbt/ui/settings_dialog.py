@@ -343,8 +343,8 @@ class SettingsDialog(QDialog):
         lim_sell = QCheckBox()
         lim_sell.setChecked(bool(settings.get('limit_order_sell', False)))
         lim_sell.setToolTip('Sell with a post_only LIMIT (maker) at the best bid —\n'
-                            'cheaper fee, only placed when the bid is above\n'
-                            'fee + trail + $0.05 (never a loss).')
+                            'cheaper fee, only placed above the no-loss entry\n'
+                            'floor (never sells at a loss).')
         self.fields['limit_order_sell'] = lim_sell
         fb_sell = QCheckBox()
         fb_sell.setChecked(bool(settings.get('fallback_to_taker_sell', True)))
@@ -370,8 +370,8 @@ class SettingsDialog(QDialog):
 
         cancel_cb = QCheckBox()
         cancel_cb.setChecked(bool(settings.get('cancel_sell_below_floor', True)))
-        cancel_cb.setToolTip('Cancel a resting limit sell if price drops below the\n'
-                             'never-take-a-loss floor (fee + trail + $0.05).')
+        cancel_cb.setToolTip('Cancel a resting limit sell if price drops below\n'
+                             'the no-loss floor (the fee-adjusted entry).')
         self.fields['cancel_sell_below_floor'] = cancel_cb
         form.addRow(tr('Cancel limit sell below floor:'), cancel_cb)
 

@@ -9,8 +9,10 @@ Windows as a small desktop app.
 
 - **Dip-buy with fee-aware bounce** — buys on a genuine dip below a fee-adjusted
   floor, never chases a bounce that the taker fee makes unreachable.
-- **Trailing-stop no-loss exit** — sells only above `entry + fee + trailing% +
-  $0.05`; DCA re-buys on dips while holding and stops at the (fee-adjusted) entry.
+- **Take-profit + trailing-stop exit** — holds below a take-profit mark (`entry +
+  take-profit %`); once reached, a trailing stop arms at the peak and closes the
+  trade on a pullback — never below the fee-adjusted entry (no loss). DCA keeps
+  re-buying dips while holding and stops at the (fee-adjusted) entry.
 - **Multi-exchange** — Coinbase Advanced Trade for live trading; any CCXT
   exchange (Kraken, Binance, …) via the same engine.
 - **API-driven** — true cost basis, balances and minimums come from the exchange.
