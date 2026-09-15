@@ -112,7 +112,9 @@ your review.
   connected websocket usually means the stored Coinbase key is invalid (the
   app now validates keys when you save, and shows "API key error — re-add").
   Fix: **Settings → Add API → Load from file…** and pick the downloaded
-  `cdp_api_key_<name>.json` — the name and key fill in automatically.
+  `cdp_api_key_<name>.json` — the name and key fill in automatically. Both
+  Coinbase key types are supported: ECDSA (PEM) and Ed25519 (the newer bare
+  base64 download).
 
 ## License
 

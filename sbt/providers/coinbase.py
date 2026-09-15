@@ -12,6 +12,7 @@ import time
 
 import requests
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 from .. import paths
@@ -50,11 +51,27 @@ def _monkey_jwt_encode(payload, key, algorithm='ES256', headers=None):
         return jwt_lib.encode(payload, key, algorithm=algorithm, headers=headers)
 
 
+def _jwt_alg_for(private_key_pem):
+    """'EdDSA' for an Ed25519 key, 'ES256' for a (P-256) EC key.
+
+    Coinbase CDP keys come in BOTH flavours (docs, 2026): ECDSA exports a PEM
+    (ES256 JWT); Ed25519 exports a bare 64-byte base64 (32-byte seed + 32-byte
+    public key) which first_run._pem_from_key converts to a PKCS8 PEM that
+    loads as an Ed25519PrivateKey. The JWT algorithm must match the key type.
+    """
+    try:
+        key = load_pem_private_key(private_key_pem.encode('utf-8'), password=None)
+        return 'EdDSA' if isinstance(key, Ed25519PrivateKey) else 'ES256'
+    except Exception:
+        return 'ES256'
+
+
 class CoinbasePriceFeed:
-    def __init__(self, api_key_name, private_key_pem, product_id):
+    def __init__(self, api_key_name, private_key_pem, product_id, jwt_alg='ES256'):
         self.api_key_name = api_key_name
         self.private_key_pem = private_key_pem
         self.product_id = product_id
+        self.jwt_alg = jwt_alg
         self.ws = None
         self.running = False
         self._stopped = False
@@ -69,7 +86,8 @@ class CoinbasePriceFeed:
             'nbf': int(time.time()),
             'exp': int(time.time()) + 120,
         }
-        return _monkey_jwt_encode(payload, self.private_key_pem)
+        return _monkey_jwt_encode(payload, self.private_key_pem,
+                                  algorithm=self.jwt_alg)
 
     def _run_forever_with_keepalive(self):
         while self.running:
@@ -161,6 +179,7 @@ class CoinbaseProvider(Provider):
     def __init__(self, api_key_name, private_key_pem):
         self.api_key_name = api_key_name
         self.private_key_pem = private_key_pem
+        self._jwt_alg = _jwt_alg_for(private_key_pem)
         self._fee_cache = None
         self._fee_cache_time = 0.0
         self._inc_cache = {}
@@ -262,7 +281,8 @@ class CoinbaseProvider(Provider):
             'exp': int(time.time()) + 120,
             'uri': f'{method} {base}{path}',
         }
-        return _monkey_jwt_encode(payload, self.private_key_pem)
+        return _monkey_jwt_encode(payload, self.private_key_pem,
+                                  algorithm=self._jwt_alg)
 
     def _request(self, method, path, data=None):
         with self._net_lock:
@@ -668,7 +688,8 @@ class CoinbaseProvider(Provider):
     # ---- price feed -------------------------------------------------------
     def start_price_feed(self, product_id, on_price, on_connection_change):
         self.stop_price_feed()
-        self._feed = CoinbasePriceFeed(self.api_key_name, self.private_key_pem, product_id)
+        self._feed = CoinbasePriceFeed(self.api_key_name, self.private_key_pem,
+                                       product_id, jwt_alg=self._jwt_alg)
         self._feed.on_price = on_price
         self._feed.on_connection_change = on_connection_change
         self._feed.start()

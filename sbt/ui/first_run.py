@@ -104,6 +104,75 @@ def _valid_pem(pem):
         return False
 
 
+def _b64decode_safe(token):
+    import base64
+    try:
+        return base64.b64decode(token)
+    except Exception:
+        return None
+
+
+def _pem_from_key(text):
+    """Turn a pasted/imported key value into a parseable PEM string.
+
+    Coinbase's downloaded `cdp_api_key_<name>.json` carries the private key as a
+    BARE single-line base64 with NO 'BEGIN/END PRIVATE KEY' armor (user field
+    report 2026-09-14) — which is exactly why pasting/importing it once left the
+    fields blank and stored a key that failed with MalformedFraming. Handles:
+      * a complete PEM block            -> returned as-is (newlines normalized)
+      * a bare base64 / hex DER key     -> decoded & re-serialized to PKCS8 PEM
+      * a bare SEC1 base64              -> armed with EC PRIVATE KEY headers
+    Returns '' when nothing parses.
+    """
+    from cryptography.hazmat.primitives.serialization import (Encoding,
+                                                              NoEncryption,
+                                                              PrivateFormat,
+                                                              load_der_private_key)
+    s = _normalize_pem(text)
+    blk = _extract_pem(s)
+    if blk:
+        return blk
+    token = ''.join(s.split())
+    if not token or len(token) < 20:
+        return ''
+    is_hex = all(c in '0123456789abcdefABCDEF' for c in token) and len(token) % 2 == 0
+    candidates = []
+    if _b64decode_safe(token) is not None:
+        candidates.append(_b64decode_safe(token))
+    if is_hex:
+        try:
+            candidates.append(bytes.fromhex(token))
+        except Exception:
+            pass
+    for der in candidates:
+        if der and len(der) == 64:
+            # Coinbase Ed25519 key: 64 bytes = 32-byte seed + 32-byte public
+            # key (docs, 2026). Wrap the seed as a PKCS8 PEM so the regular
+            # load_pem_private_key path + validator both work unchanged.
+            try:
+                from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                    Ed25519PrivateKey)
+                key = Ed25519PrivateKey.from_private_bytes(der[:32])
+                return key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8,
+                                         NoEncryption()).decode().strip()
+            except Exception:
+                pass
+        try:
+            key = load_der_private_key(der, password=None)
+            return key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8,
+                                     NoEncryption()).decode().strip()
+        except Exception:
+            continue
+    if all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=' for c in token):
+        import textwrap
+        body = '\n'.join(textwrap.wrap(token, 64))
+        pem = (f'-----BEGIN EC PRIVATE KEY-----\n{body}\n'
+               '-----END EC PRIVATE KEY-----')
+        if _valid_pem(pem):
+            return pem
+    return ''
+
+
 def _extract_pair(text):
     """A copied 'Key / Secret' blob (newline- or comma-separated) from
     exchanges that don't offer a download (e.g. Binance.US) — user copies the
@@ -292,8 +361,12 @@ class FirstRunDialog(QDialog):
         try:
             obj = json.loads(text)
             if isinstance(obj, dict):
-                pem = next((_normalize_pem(obj.get(k)) for k in _PEM_FIELDS
-                            if isinstance(obj.get(k), str) and _extract_pem(obj.get(k))), '')
+                pem = ''
+                for k in _PEM_FIELDS:
+                    if isinstance(obj.get(k), str):
+                        pem = _pem_from_key(obj.get(k))
+                        if pem:
+                            break
                 name = next((str(obj.get(k)).strip() for k in _NAME_FIELDS
                              if obj.get(k)), '')
                 if pem:
@@ -344,16 +417,21 @@ class FirstRunDialog(QDialog):
                                     'Coinbase needs the API Key Name and the Private Key PEM.')
                 return
             if not _valid_pem(pem):
-                QMessageBox.warning(
-                    self, 'Invalid Private Key',
-                    'That Private Key does not parse as a valid PEM key.\n\n'
-                    'Coinbase keys look like:\n'
-                    '-----BEGIN EC PRIVATE KEY-----\n'
-                    'MIGEAgEBA...\n'
-                    '-----END EC PRIVATE KEY-----\n\n'
-                    'Use "Load from file…" on the downloaded cdp_api_key_<name>.json '
-                    '— the name and key fill in automatically.')
-                return
+                converted = _pem_from_key(pem)
+                if converted and _valid_pem(converted):
+                    pem = converted
+                    self.private_key_edit.setPlainText(pem)
+                else:
+                    QMessageBox.warning(
+                        self, 'Invalid Private Key',
+                        'That Private Key does not parse as a valid PEM key.\n\n'
+                        'Coinbase keys look like:\n'
+                        '-----BEGIN EC PRIVATE KEY-----\n'
+                        'MIGEAgEBA...\n'
+                        '-----END EC PRIVATE KEY-----\n\n'
+                        'Use "Load from file…" on the downloaded cdp_api_key_<name>.json '
+                        '— the name and key fill in automatically.')
+                    return
             self.private_key_edit.setPlainText(pem)
         keys.save_keys(name, pem, ccxt_api_key=ckey, ccxt_secret=csec, ccxt_password=cpass)
         cur = load_settings()
