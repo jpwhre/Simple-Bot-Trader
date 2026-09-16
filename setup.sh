@@ -9,6 +9,27 @@ APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$APP_DIR/venv"
 REQ_FILE="$APP_DIR/requirements.txt"
 
+# --- Relocate out of a temp dir (zip extracted to /tmp or macOS $TMPDIR) ------
+# Running setup.sh from an extracted zip that landed in a temp folder puts the
+# venv + shortcuts in somewhere the OS cleans on reboot. Same guard as
+# setup.bat on Windows: move to a permanent per-user folder first.
+_RELOC="no"
+_TMPP="$(printf '%s' "${TMPDIR:-/tmp}" | sed 's#/$##')"
+_STABLE="$HOME/Simple-Bot-Trader"
+case "$APP_DIR" in
+  "${_TMPP}"/*|"${_TMPP}"/|"$_TMPP"|/tmp/*|/private/tmp/*|/var/folders/*)
+    _RELOC="yes" ;;
+esac
+if [ "$_RELOC" = "yes" ] && [ "$APP_DIR" != "$_STABLE" ]; then
+    echo ""
+    echo "Detected a temporary install folder - moving to $_STABLE"
+    rm -rf "$APP_DIR/venv"
+    mkdir -p "$_STABLE"
+    ( cd "$APP_DIR" && tar cf - . ) 2>/dev/null | ( cd "$_STABLE" && tar xf - ) 2>/dev/null
+    cd "$_STABLE" && exec bash "$_STABLE/setup.sh"
+    exit 1
+fi
+
 # --- Colors ----------------------------------------------------------------
 RED='\033[0;31m'
 GREEN='\033[0;32m'
