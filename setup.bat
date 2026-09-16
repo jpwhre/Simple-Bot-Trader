@@ -1,5 +1,5 @@
 @echo off
-REM Simple Bot Trader — Setup Script (Windows)
+REM Simple Bot Trader - Setup Script (Windows)
 REM Detects Python, installs dependencies, creates a desktop shortcut.
 REM Usage:  double-click setup.bat or run from Command Prompt.
 
@@ -11,7 +11,7 @@ set VENV_DIR=%APP_DIR%venv
 set REQ_FILE=%APP_DIR%requirements.txt
 
 echo ============================================
-echo   %APP_NAME% — Setup
+echo   %APP_NAME% - Setup
 echo ============================================
 echo.
 
@@ -47,11 +47,35 @@ if %ERRORLEVEL% equ 0 (
     )
 )
 
+REM Python launcher (many machines have `py` even without python on PATH)
+where py >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    if not defined PYTHON (
+        py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)" >nul 2>&1
+        if !ERRORLEVEL! equ 0 set PYTHON=py -3
+    )
+)
+
 if not defined PYTHON (
     echo [FAIL] Python 3.9+ is required but not found.
     echo.
-    echo Install Python from: https://www.python.org/downloads/
-    echo   - Check "Add Python to PATH" during installation.
+    set /p PYCHOICE=  Try to install Python now [Y/N]:
+    echo.
+    if /I "!PYCHOICE!"=="Y" (
+        where winget >nul 2>&1
+        if !ERRORLEVEL! equ 0 (
+            echo   Installing Python via winget...
+            winget install --id Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements >nul 2>&1
+        ) else (
+            echo   winget is not available - opening the Python download page...
+            start "" "https://www.python.org/downloads/"
+        )
+    ) else (
+        echo   Download Python from: https://www.python.org/downloads/
+        echo   - Check "Add Python to PATH" during installation.
+    )
+    echo.
+    echo   After installing Python, close this window and double-click setup.bat again.
     echo.
     pause
     exit /b 1

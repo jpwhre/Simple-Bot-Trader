@@ -64,7 +64,7 @@ to the app. Modern Linux/macOS block `pip install` to the system Python
 must not collide with other software. `run.sh` uses the venv automatically —
 there is nothing extra to activate.
 
-## Autostart & the "remote" lock
+## Autostart & return-to-state
 
 - **Return-to-state:** the installer enables OS autostart (Linux systemd, macOS
   LaunchAgent, Windows Startup folder). After a reboot, the bot reopens itself
@@ -73,16 +73,11 @@ there is nothing extra to activate.
   relaunch additionally needs a desktop session with **auto-login** (common on a
   dedicated bot box). A power loss mid-run is fine — the app resumes from the
   exchange (API cost basis).
-- **Remote-desktop lock:** the bot refuses to trade when it detects it was
-  started from a remote session (SSH/X11, RDP, VNC…) — a safety gate against a
-  hijacked or unlocked remote session. When launched normally in a **local**
-  session (or by the autostart hooks above), it trades freely and the gate stays
-  intact for later remote access. `SBT_ALLOW_REMOTE=1` disables this gate — only
-  set it on a machine you fully trust, and understand it then also protects you
-  from nothing when someone else controls that box remotely.
-- **A virtual environment is NOT a "remote".** The venv is just an isolated
-  dependencies folder on disk; it has no effect on the remote-detection/blocking
-  logic.
+- **API key permission check:** at Add API, Coinbase keys are checked live
+  against `GET /key_permissions`. Keys that can **initiate transfer of funds**
+  (deposit/withdrawal) are **rejected**, and keys that can't place trades are
+  rejected. If the check can't run (offline/network error), the app warns and
+  lets you save — but never use a key that can move funds.
 
 ## Updates
 

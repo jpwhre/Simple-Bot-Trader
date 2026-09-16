@@ -112,6 +112,25 @@ def _b64decode_safe(token):
         return None
 
 
+# Injectable for tests: fn(api_key_name, pem) -> permissions dict or None.
+# None means "couldn't verify" (the app warns and allows, per user decision 2026-09-15).
+_PERMISSIONS_FETCH = None
+
+
+def _coinbase_permissions(api_key_name, pem):
+    """Live permission flags for a Coinbase key (or None if unverifiable)."""
+    if _PERMISSIONS_FETCH is not None:
+        try:
+            return _PERMISSIONS_FETCH(api_key_name, pem)
+        except Exception:
+            return None
+    try:
+        from ..providers.coinbase import CoinbaseProvider
+        return CoinbaseProvider(api_key_name, pem).get_key_permissions()
+    except Exception:
+        return None
+
+
 def _pem_from_key(text):
     """Turn a pasted/imported key value into a parseable PEM string.
 
@@ -433,6 +452,27 @@ class FirstRunDialog(QDialog):
                         '— the name and key fill in automatically.')
                     return
             self.private_key_edit.setPlainText(pem)
+            perms = _coinbase_permissions(name, pem)
+            if perms is None:
+                QMessageBox.warning(
+                    self, 'Permissions Not Verified',
+                    "Couldn't verify this API key's permissions (network error).\n\n"
+                    'If this key can INITIATE TRANSFER of funds, do not use it —\n'
+                    'save only a READ + TRADE key here.')
+            elif perms.get('can_transfer'):
+                QMessageBox.warning(
+                    self, 'Permissions Rejected',
+                    "This API key has INITIATE TRANSFER (deposit/withdrawal)\n"
+                    "permission — the bot refuses it.\n\n"
+                    'Create a key with READ + TRADE only (no transfer) and\n'
+                    "load that cdp_api_key_<name>.json instead.")
+                return
+            elif not perms.get('can_trade'):
+                QMessageBox.warning(
+                    self, 'Permissions Rejected',
+                    "This API key can't place trades (no TRADE permission).\n\n"
+                    'Create a READ + TRADE key and load it instead.')
+                return
         keys.save_keys(name, pem, ccxt_api_key=ckey, ccxt_secret=csec, ccxt_password=cpass)
         cur = load_settings()
         cur['exchange'] = exchange

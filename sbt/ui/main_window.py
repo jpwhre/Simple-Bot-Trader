@@ -465,20 +465,6 @@ class MainWindow(QMainWindow):
     # ---- buttons ----------------------------------------------------------
     def _on_start(self):
         bot = self.bot
-        # REMOTE-SESSION GATE (user, 2026-08-10): never trade from a remote
-        # desktop session — the bot opens (so the account is inspectable) but
-        # refuses to start trading until the session is local again. Cross-
-        # platform detection in sbt.remote; SBT_ALLOW_REMOTE=1 opts out.
-        try:
-            from .. import remote
-            if remote.detect_remote_session():
-                bot._log(remote.remote_reason(), user=True)
-                self.dashboard.log_message('Remote session active — trading blocked. '
-                                           'Return to a local session to trade.')
-                runtime_state.save_started(False)
-                return
-        except Exception:
-            pass
         runtime_state.save_started(True)
         # Verify the held position BEFORE allowing any trading (BUG-007):
         # if the balance can't be read, the bot must not start — buying on top

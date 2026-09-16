@@ -303,6 +303,15 @@ class CoinbaseProvider(Provider):
                 raise Exception(f'{e} [URL: {method} {url}]')
 
     # ---- balances ---------------------------------------------------------
+    def get_key_permissions(self):
+        """Key permission flags (can_view / can_trade / can_transfer / ...)
+        from `GET /key_permissions` — used at Add-API time to REJECT keys that
+        can initiate transfers (or can't trade). None when the call fails."""
+        try:
+            return self._request('GET', '/key_permissions')
+        except Exception:
+            return None
+
     def get_quote_balance(self, product_id):
         """Get quote currency balance with retry on transient failures.
         Returns 0.0 only after all retries exhausted (not on a single glitch)."""
