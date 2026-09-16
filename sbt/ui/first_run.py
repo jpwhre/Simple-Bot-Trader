@@ -112,21 +112,25 @@ def _b64decode_safe(token):
         return None
 
 
-# Injectable for tests: fn(api_key_name, pem) -> permissions dict or None.
+# Injectable for tests: fn(exchange, name, pem, ckey, csec, cpass) -> dict|None.
 # None means "couldn't verify" (the app warns and allows, per user decision 2026-09-15).
 _PERMISSIONS_FETCH = None
 
 
-def _coinbase_permissions(api_key_name, pem):
-    """Live permission flags for a Coinbase key (or None if unverifiable)."""
+def _exchange_permissions(exchange, name, pem, ckey, csec, cpass):
+    """Live permission flags for an exchange key, or None if unverifiable.
+
+    Coinbase: GET /key_permissions. Binance/Binance.US: ccxt's
+    sapi_get_account_api_restrictions. Everything else: no endpoint -> None."""
     if _PERMISSIONS_FETCH is not None:
         try:
-            return _PERMISSIONS_FETCH(api_key_name, pem)
+            return _PERMISSIONS_FETCH(exchange, name, pem, ckey, csec, cpass)
         except Exception:
             return None
     try:
-        from ..providers.coinbase import CoinbaseProvider
-        return CoinbaseProvider(api_key_name, pem).get_key_permissions()
+        from ..providers import create_provider
+        return create_provider(exchange, name, pem, ckey, csec,
+                               cpass).get_key_permissions()
     except Exception:
         return None
 
@@ -452,7 +456,7 @@ class FirstRunDialog(QDialog):
                         '— the name and key fill in automatically.')
                     return
             self.private_key_edit.setPlainText(pem)
-            perms = _coinbase_permissions(name, pem)
+            perms = _exchange_permissions(exchange, name, pem, ckey, csec, cpass)
             if perms is None:
                 QMessageBox.warning(
                     self, 'Permissions Not Verified',
@@ -467,11 +471,38 @@ class FirstRunDialog(QDialog):
                     'Create a key with READ + TRADE only (no transfer) and\n'
                     "load that cdp_api_key_<name>.json instead.")
                 return
-            elif not perms.get('can_trade'):
+            elif perms.get('can_trade') is False:
                 QMessageBox.warning(
                     self, 'Permissions Rejected',
                     "This API key can't place trades (no TRADE permission).\n\n"
                     'Create a READ + TRADE key and load it instead.')
+                return
+        else:
+            # CCXT exchange: API key/secret (password optional).
+            if not ckey:
+                QMessageBox.warning(self, 'Missing Credentials',
+                                    f'{exchange} needs the API Key (and Secret / '
+                                    'Password if the exchange requires them).')
+                return
+            perms = _exchange_permissions(exchange, name, pem, ckey, csec, cpass)
+            if perms is None:
+                QMessageBox.warning(
+                    self, 'Permissions Not Verified',
+                    f"Couldn't verify this {exchange} key's permissions.\n\n"
+                    'If this key can WITHDRAW / TRANSFER funds, do not use it — '
+                    'create a trading-only key.')
+            elif perms.get('can_transfer'):
+                QMessageBox.warning(
+                    self, 'Permissions Rejected',
+                    f"This {exchange} API key can WITHDRAW / TRANSFER funds — the\n"
+                    'bot refuses it.\n\nCreate a trading-only key (no withdrawal) '
+                    'and load that instead.')
+                return
+            elif perms.get('can_trade') is False:
+                QMessageBox.warning(
+                    self, 'Permissions Rejected',
+                    f"This {exchange} API key can't place trades.\n\n"
+                    'Create a trading-enabled key and load that instead.')
                 return
         keys.save_keys(name, pem, ccxt_api_key=ckey, ccxt_secret=csec, ccxt_password=cpass)
         cur = load_settings()

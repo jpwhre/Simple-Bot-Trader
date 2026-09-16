@@ -15,6 +15,14 @@ from .base import Provider
 _DEFAULT_FEE = 0.006
 _FEED_INTERVAL = 2.5
 
+# Exchanges whose API exposes the key's own permission flags via a CCXT
+# implicit method. Everything else has no way to ask "can this key withdraw?",
+# so it returns None (unverifiable -> the app warns instead of blocking).
+_PERMISSION_METHODS = {
+    'binance': 'sapi_get_account_api_restrictions',
+    'binanceus': 'sapi_get_account_api_restrictions',
+}
+
 
 class CcxtProvider(Provider):
     name = 'CCXT'
@@ -336,6 +344,30 @@ class CcxtProvider(Provider):
             return []
 
     # ---- price feed (polling — no WS for generic ccxt) ---------------------
+    def get_key_permissions(self):
+        """Permission flags for this exchange's key, or None when the exchange
+        exposes no permission endpoint (or the call fails).
+
+        Binance / Binance.US: `sapi/v1/account/apiRestrictions` (ccxt's implicit
+        method) reports withdrawal/transfer capability + the spot-trading flag.
+        All other exchanges have no equivalent endpoint -> None."""
+        method = _PERMISSION_METHODS.get((self.exchange_id or '').lower())
+        if not method or not hasattr(self._ex, method):
+            return None
+        try:
+            data = getattr(self._ex, method)() or {}
+            can_transfer = bool(
+                data.get('enableWithdrawals')
+                or data.get('enableInternalTransfer')
+                or data.get('permitsUniversalTransfer'))
+            trade = data.get('enableSpotAndMarginTrading')
+            can_trade = trade if isinstance(trade, bool) else None
+            return {'can_view': bool(data.get('enableReading', True)),
+                    'can_trade': can_trade,
+                    'can_transfer': can_transfer}
+        except Exception:
+            return None
+
     def start_price_feed(self, product_id, on_price, on_connection_change):
         # Stop any previous feed FIRST (BUG-003) so a settings pair change never
         # leaves the old feed polling the old symbol and feeding wrong-pair

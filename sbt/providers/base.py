@@ -37,6 +37,13 @@ class Provider:
     def get_real_base_balance(self, product_id):
         raise NotImplementedError
 
+    def get_key_permissions(self):
+        """Best-effort key-permission flags, or None when the exchange exposes
+        no permission endpoint (most don't) or the call fails. Expected shape:
+        {'can_trade': bool|None, 'can_transfer': bool}. Verified at Add-API time
+        so keys that could move funds are rejected where that is discoverable."""
+        return None
+
     # ---- prices -----------------------------------------------------------
     def get_best_ask(self, product_id):
         raise NotImplementedError

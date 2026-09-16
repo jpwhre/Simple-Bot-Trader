@@ -73,11 +73,13 @@ there is nothing extra to activate.
   relaunch additionally needs a desktop session with **auto-login** (common on a
   dedicated bot box). A power loss mid-run is fine — the app resumes from the
   exchange (API cost basis).
-- **API key permission check:** at Add API, Coinbase keys are checked live
-  against `GET /key_permissions`. Keys that can **initiate transfer of funds**
-  (deposit/withdrawal) are **rejected**, and keys that can't place trades are
-  rejected. If the check can't run (offline/network error), the app warns and
-  lets you save — but never use a key that can move funds.
+- **API key permission check:** at Add API, keys are checked live where the
+  exchange exposes it — Coinbase (`GET /key_permissions`) and Binance /
+  Binance.US (`sapi/v1/account/apiRestrictions`). Keys that can **initiate
+  transfer / withdrawal of funds** are **rejected**, and keys that can't trade
+  are rejected. Exchanges with no permission endpoint (Kraken, OKX, Bybit, …)
+  can't be verified by any API — the app warns (never use a key that can move
+  funds) and lets you proceed.
 
 ## Updates
 
