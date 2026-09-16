@@ -10,6 +10,25 @@ set APP_DIR=%~dp0
 set VENV_DIR=%APP_DIR%venv
 set REQ_FILE=%APP_DIR%requirements.txt
 
+REM --- Install to a permanent folder if we are running from a temp dir --------
+REM Windows' zip extractor (or a browser) often drops the app in %TEMP%, where
+REM the shortcuts/venv later break (Win7/10 cleanup, reboots). Move the app to a
+REM stable per-user Programs folder first, then re-run setup from there.
+set STABLE=%LOCALAPPDATA%\Programs\SimpleBotTrader
+echo %APP_DIR% | findstr /i /c:"\Temp\" >nul
+if not errorlevel 1 (
+    if /i not "%APP_DIR%"=="%STABLE%\" (
+        echo.
+        echo Detected a temporary install folder - moving to %STABLE%
+        if exist "%APP_DIR%venv" rmdir /s /q "%APP_DIR%venv"
+        if not exist "%STABLE%" mkdir "%STABLE%"
+        xcopy "%APP_DIR%." "%STABLE%\" /e /i /y >nul
+        cd /d "%STABLE%"
+        call "%STABLE%\setup.bat"
+        exit /b 0
+    )
+)
+
 echo ============================================
 echo   %APP_NAME% - Setup
 echo ============================================
