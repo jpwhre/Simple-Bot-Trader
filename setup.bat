@@ -17,6 +17,8 @@ echo.
 
 REM --- Python check --------------------------------------------------------
 set PYTHON=
+set BROWSE=
+:check_python
 where python >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v
@@ -56,31 +58,49 @@ if %ERRORLEVEL% equ 0 (
     )
 )
 
-if not defined PYTHON (
-    echo [FAIL] Python 3.9+ is required but not found.
-    echo.
-    set /p PYCHOICE=  Try to install Python now [Y/N]:
-    echo.
-    if /I "!PYCHOICE!"=="Y" (
-        where winget >nul 2>&1
-        if !ERRORLEVEL! equ 0 (
-            echo   Installing Python via winget...
-            winget install --id Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements >nul 2>&1
-        ) else (
-            echo   winget is not available - opening the Python download page...
-            start "" "https://www.python.org/downloads/"
-        )
-    ) else (
-        echo   Download Python from: https://www.python.org/downloads/
-        echo   - Check "Add Python to PATH" during installation.
-    )
-    echo.
-    echo   After installing Python, close this window and double-click setup.bat again.
-    echo.
-    pause
-    exit /b 1
-)
+if defined PYTHON goto python_found
 
+echo [FAIL] Python 3.9+ is required but not found.
+echo.
+set /p PYCHOICE=  Try to install Python now [Y/N]:
+echo.
+if /I "!PYCHOICE!"=="Y" (
+    where winget >nul 2>&1
+    if !ERRORLEVEL! equ 0 (
+        echo   [OK] Installing Python 3.12 via winget...
+        winget install --id Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements >nul 2>&1
+    ) else (
+        echo   winget is not available - you will download Python manually.
+    )
+    set BROWSE=1
+    echo.
+    echo   Opening the official Python download page...
+    start "" "https://www.python.org/downloads/"
+) else (
+    echo   Download Python from: https://www.python.org/downloads/
+    echo   - Check "Add Python to PATH" during installation.
+)
+echo.
+if not defined BROWSE (
+    echo   Opening the official Python download page...
+    start "" "https://www.python.org/downloads/"
+)
+echo.
+echo   After Python is installed, press Y here and the installer re-checks
+echo   and continues automatically.
+set /p PYAGAIN=  Press Y to re-check (or N to quit) [Y/N]:
+echo.
+if /I "!PYAGAIN!"=="Y" (
+    REM PATH may need a new window: also probe the common per-user install dir.
+    if not defined PYTHON if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set PYTHON="%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    if not defined PYTHON if exist "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" set PYTHON="%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+    goto check_python
+)
+echo   Python was not detected. Close this window and double-click setup.bat again.
+pause
+exit /b 1
+
+:python_found
 echo [OK] Found %PYTHON%
 %PYTHON% --version
 echo.
