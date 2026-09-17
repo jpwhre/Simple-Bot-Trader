@@ -379,6 +379,9 @@ def main():
         pass
     app = QApplication(sys.argv)
     app.setApplicationName('Simple Bot Trader')
+    app.setApplicationDisplayName('Simple Bot Trader')
+    import sbt as _sbt
+    app.setApplicationVersion(str(_sbt.__version__))
     # DEV-ONLY (never ships): right-click widget inspector. SBT_ADMIN=1 on the
     # developer's build enables it; the shipped build has no inspector.
     # Import is lazy so the ship copy can exclude sbt/ui/inspector.py.

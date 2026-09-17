@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
             pass
         layout.addWidget(self.dashboard)
 
-        self.setWindowTitle(tr('Simple Crypto Trader'))
+        self.setWindowTitle(tr('Simple Bot Trader'))
         try:
             self.setWindowIcon(QIcon(WINDOW_ICON))
         except Exception:

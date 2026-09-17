@@ -561,25 +561,44 @@ class SettingsDialog(QDialog):
         layout.addLayout(btn_row)
 
     def _on_check_now(self):
-        """Ask GitHub right now (threaded, result via signal) whether a newer
-        release exists — and tell the user visibly whether it's up-to-date,
-        available, or unreachable, so 'which isn't working' is always clear."""
+        """Ask GitHub right now (threaded, result via signal). Reports the
+        SPECIFIC reason when GitHub can't be reached (network / HTTP / SSL /
+        firewall), so a Windows box where the exchange works but the update
+        check doesn't is actually diagnosable."""
         from .. import auto_update as au
 
         def work():
-            reachable = False
-            try:
-                import urllib.request as _ur
-                with _ur.urlopen(
-                        f'https://api.github.com/repos/{au.UPDATES_OWNER}/'
-                        f'{au.UPDATES_REPO}/releases?per_page=1', timeout=10) as r:
-                    reachable = r.status == 200
-            except Exception:
-                reachable = False
             cur = au.current_version()
-            if not reachable:
-                msg = (f'Update check FAILED - GitHub is not reachable '
-                       f'(network/offline?). Running v{cur}.')
+            url = (f'https://api.github.com/repos/{au.UPDATES_OWNER}/'
+                   f'{au.UPDATES_REPO}/releases?per_page=1')
+            hdr = {'User-Agent': f'SimpleBotTrader/{cur}'}
+            ok = False
+            reason = ''
+            try:
+                import requests as _req
+                r = _req.get(url, timeout=10, headers=hdr)
+                ok = r.status_code == 200
+                if not ok:
+                    reason = f'HTTP {r.status_code}'
+            except Exception as e:
+                reason = f'requests: {e}'
+            if not ok:
+                try:
+                    import urllib.request as _ur
+                    with _ur.urlopen(_ur.Request(url, headers=hdr), timeout=10) as r:
+                        ok = r.status == 200
+                    if not ok:
+                        reason = reason + f' | urllib HTTP {getattr(r, "status", "?")}'
+                except Exception as e2:
+                    reason = reason + f' | urllib: {e2}'
+            if not ok:
+                msg = (f'Update check FAILED - cannot reach GitHub.\n'
+                       f'Reason: {reason or "unknown"}\n'
+                       f'\nRunning v{cur}. If the exchange/web work but this '
+                       f'fails, allow pythonw through Windows Defender '
+                       f'Firewall, or test with:\n'
+                       f'  curl.exe https://api.github.com\n'
+                       f'(see TESTING.md for details.)')
             else:
                 tag, _asset, _dig, _sec = au.check_for_update()
                 msg = (f'Update available: v{tag} (running v{cur}).' if tag

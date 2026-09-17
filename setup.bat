@@ -149,7 +149,9 @@ echo.
 
 REM --- Desktop shortcut -----------------------------------------------------
 echo Creating desktop shortcut...
+REM OneDrive-safe Desktop path (folder redirection moves the real Desktop).
 set SHORTCUT_DIR=%USERPROFILE%\Desktop
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do set SHORTCUT_DIR=%%D
 set SHORTCUT_VBS=%TEMP%\create_shortcut.vbs
 
 (
@@ -160,6 +162,7 @@ set SHORTCUT_VBS=%TEMP%\create_shortcut.vbs
     echo oLink.Arguments = "%APP_DIR%main.py"
     echo oLink.WorkingDirectory = "%APP_DIR%"
     echo oLink.Description = "%APP_NAME%"
+    echo oLink.IconLocation = "%APP_DIR%sbt\ui\styles\icon.png"
     echo oLink.WindowStyle = 7
     echo oLink.Save
 ) > "%SHORTCUT_VBS%"
@@ -187,6 +190,7 @@ set STARTUP_VBS=%TEMP%\create_startup.vbs
     echo oLink.Arguments = "%APP_DIR%main.py --if-was-launched"
     echo oLink.WorkingDirectory = "%APP_DIR%"
     echo oLink.Description = "%APP_NAME% auto-reopen"
+    echo oLink.IconLocation = "%APP_DIR%sbt\ui\styles\icon.png"
     echo oLink.WindowStyle = 7
     echo oLink.Save
 ) > "%STARTUP_VBS%"
