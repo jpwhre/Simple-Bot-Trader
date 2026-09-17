@@ -487,8 +487,15 @@ class TradingBot:
                         real_bal = self.client.get_real_base_balance(
                             self.state.position.product_id)
                         if real_bal is not None and real_bal <= 1e-12:
-                            self._log('SYNC: exchange balance is 0 — position '
-                                      'closed externally, resuming WATCHING',
+                            # CONFIRM on two consecutive flat reads (60s apart) —
+                            # a single transient zero must not fake an "external
+                            # close" and then have the next sync re-adopt the
+                            # position (user report 2026-09-16).
+                            self._flat_checks = getattr(self, '_flat_checks', 0) + 1
+                            if self._flat_checks < 2:
+                                return
+                            self._log('SYNC: exchange balance is 0 (2x confirmed) — '
+                                      'position closed externally, resuming WATCHING',
                                       user=True)
                             self.state.position = None
                             self.state.status = BotStatus.WATCHING
@@ -501,8 +508,11 @@ class TradingBot:
                             # required before any new buy.
                             self.dip_detector.reset()
                             self._trigger_lowest = None
+                            self._flat_checks = 0
                             runtime_state.save_own_base(0.0)
                             return
+                        if real_bal is not None:
+                            self._flat_checks = 0
                         # COMBINE MODE: adopt an external addition (user bought more outside
                         # the bot). Re-fetch balance + cost basis, update
                         # position size and FEE-EXCLUDED entry. Only re-base

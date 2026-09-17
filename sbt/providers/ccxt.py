@@ -135,10 +135,12 @@ class CcxtProvider(Provider):
             with self._lock:
                 return self._ex.fetch_balance()
         except Exception:
-            return {}
+            return None          # read failure must NOT look like a flat 0.0
 
     def get_quote_balance(self, product_id):
         b = self._balance()
+        if b is None:
+            return 0.0
         q = self.quote_currency(product_id)
         for cur in (q, 'USDC', 'USD'):
             free = b.get('free', {}).get(cur)
@@ -152,6 +154,8 @@ class CcxtProvider(Provider):
     def get_real_base_balance(self, product_id):
         try:
             b = self._balance()
+            if b is None:
+                return None      # failed read = unverified, NOT flat (BUG-007)
             base = self.base_currency(product_id)
             amt = b.get('free', {}).get(base)
             if amt is None:

@@ -359,12 +359,23 @@ class CoinbaseProvider(Provider):
         """Real base balance held for this pair, or 0.0 if the account
         verifiably has none, or None if the read FAILED (caller must not trade
         on an unknown position). Read-succeeded-but-not-found must be 0.0, NOT
-        None — None is reserved for actual read failure (see BUG-007)."""
+        None — None is reserved for actual read failure (see BUG-007).
+
+        Scans EVERY portfolio (a key/account can have several): a portfolio-less
+        response or an empty portfolios list is AMBIGUOUS (a transient/portfolio
+        hiccup), so it returns None rather than a fake "verified flat" 0.0 —
+        that fake flat was making the engine declare phantom 'external close'
+        then re-adopt the position a minute later (user report 2026-09-16)."""
         base = self.base_currency(product_id)
         try:
             p = self._request('GET', '/portfolios')
-            uuid = p.get('portfolios', [{}])[0].get('uuid', '')
-            if uuid:
+            portfolios = p.get('portfolios') or []
+            if not portfolios:
+                return None          # ambiguous read, NOT verified flat
+            for pf in portfolios:
+                uuid = (pf or {}).get('uuid', '')
+                if not uuid:
+                    continue
                 bd = self._request('GET', f'/portfolios/{uuid}')
                 for sp in bd.get('breakdown', {}).get('spot_positions', []):
                     if (sp.get('asset') or '').upper() == base:
@@ -372,11 +383,10 @@ class CoinbaseProvider(Provider):
                         if bal <= 0:
                             bal = float(sp.get('total_balance_crypto', 0))
                         return bal
-                # read succeeded, no such asset -> verified flat
-                return 0.0
+            # read succeeded, no such asset in ANY portfolio -> verified flat
+            return 0.0
         except Exception:
-            pass
-        return None
+            return None
 
     # ---- order history / cost basis --------------------------------------
     def _list_fills(self):
