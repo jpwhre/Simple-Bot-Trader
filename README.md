@@ -64,6 +64,12 @@ to the app. Modern Linux/macOS block `pip install` to the system Python
 must not collide with other software. `run.sh` uses the venv automatically —
 there is nothing extra to activate.
 
+**Native installers (in development):** Windows builds a `setup.exe` (Inno
+Setup — desktop icon + Start Menu + built-in uninstaller) and macOS an `.app`
++ dmg on every release tag via GitHub Actions; Linux uses a `tools/build_deb.sh`
+`.deb` (`dpkg -r simple-bot-trader` to uninstall). Updates for the native
+installs are installer-driven: download the new signed installer and run it.
+
 ## Autostart & return-to-state
 
 - **Return-to-state:** the installer enables OS autostart (Linux systemd, macOS
