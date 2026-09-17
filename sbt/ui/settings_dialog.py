@@ -1,6 +1,8 @@
 """Settings dialog — ported from the restored app (Product ID ticker + editable
 quote box, trade-size mode row, DCA, deferred save while running)."""
-from PyQt5.QtCore import Qt
+import threading
+
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QCompleter, QDialog,
                              QDoubleSpinBox, QFormLayout, QHBoxLayout, QInputDialog,
                              QLabel, QLineEdit, QMessageBox, QPushButton, QSizePolicy,
@@ -29,6 +31,8 @@ def _quote_label(quote):
 
 
 class SettingsDialog(QDialog):
+    check_done = pyqtSignal(str)
+
     def __init__(self, settings, on_save, parent=None, client=None):
         super().__init__(parent)
         self.settings = settings
@@ -40,6 +44,8 @@ class SettingsDialog(QDialog):
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
+        self.check_done.connect(
+            lambda m: QMessageBox.information(self, 'Update Check', m))
         layout.addLayout(form)
 
         # --- Exchange: dropdown of the API keys SAVED on this machine.
@@ -458,15 +464,15 @@ class SettingsDialog(QDialog):
                           'ON by default.')
         self.fields['auto_update_check'] = upd_cb
         upd_install_cb = QCheckBox()
-        upd_install_cb.setChecked(bool(settings.get('auto_update_install', False)))
+        upd_install_cb.setChecked(bool(settings.get('auto_update_install', True)))
         upd_install_cb.setToolTip('When a new release is found: INSTALL it '
                                   'automatically with a heads-up\n'
                                   '(10s countdown), restart the app, and return '
                                   'to state — mid-trade is fine\n'
-                                  '(position resumes from the exchange). OFF by '
-                                  'default = only check + notify\n'
-                                  '(you click Install now). A failed update '
-                                  'auto-rolls back to the previous version.')
+                                  '(position resumes from the exchange). ON by '
+                                  'default (opt-out); turn OFF for\n'
+                                  'check + notify only (you click Install now). '
+                                  'A failed update auto-rolls back.')
         self.fields['auto_update_install'] = upd_install_cb
 
         def _sync_upd(on):
@@ -475,6 +481,14 @@ class SettingsDialog(QDialog):
         _sync_upd(upd_cb.isChecked())
         form.addRow(tr('Check for updates:'), upd_cb)
         form.addRow(tr('Install updates automatically:'), upd_install_cb)
+
+        check_btn = QPushButton('Check for updates now…')
+        check_btn.setToolTip('Ask GitHub right now about a newer release and '
+                             'say what was found (or that the check failed).')
+        check_btn.clicked.connect(self._on_check_now)
+        form.addRow('', check_btn)
+        from .. import __version__ as _app_version
+        form.addRow(tr('Version:'), QLabel(f'v{_app_version}'))
 
         # EXCHANGE MAINTENANCE NOTICES (user 2026-08-16): polls the exchange's
         # own status endpoint every 30 min and shows a banner at the top of the
@@ -545,6 +559,34 @@ class SettingsDialog(QDialog):
         self.uninstall_btn.clicked.connect(self._on_uninstall)
         btn_row.addWidget(self.uninstall_btn)
         layout.addLayout(btn_row)
+
+    def _on_check_now(self):
+        """Ask GitHub right now (threaded, result via signal) whether a newer
+        release exists — and tell the user visibly whether it's up-to-date,
+        available, or unreachable, so 'which isn't working' is always clear."""
+        from .. import auto_update as au
+
+        def work():
+            reachable = False
+            try:
+                import urllib.request as _ur
+                with _ur.urlopen(
+                        f'https://api.github.com/repos/{au.UPDATES_OWNER}/'
+                        f'{au.UPDATES_REPO}/releases?per_page=1', timeout=10) as r:
+                    reachable = r.status == 200
+            except Exception:
+                reachable = False
+            cur = au.current_version()
+            if not reachable:
+                msg = (f'Update check FAILED - GitHub is not reachable '
+                       f'(network/offline?). Running v{cur}.')
+            else:
+                tag, _asset, _dig, _sec = au.check_for_update()
+                msg = (f'Update available: v{tag} (running v{cur}).' if tag
+                       else f'Up to date - no newer release (running v{cur}).')
+            self.check_done.emit(msg)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _on_uninstall(self):
         from PyQt5.QtWidgets import QApplication, QMessageBox

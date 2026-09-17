@@ -7,8 +7,9 @@ DESIGN (user decisions 2026-08-09):
   - Jump to the NEWEST release (semver; GitHub `releases/latest` excludes
     pre-releases). Metadata-only outbound to GitHub — the approved privacy
     exception (no user data).
-  - Default = CHECK + NOTIFY ONLY (`auto_update_install` OFF). Turning install
-    on (or clicking "Install now") does AUTO-INSTALL WITH A HEADS-UP dialog.
+  - Default = CHECK + INSTALL ON (opt-out since v0.0.10): a normal update
+    auto-installs after a short heads-up countdown (choose "Later" to defer).
+    Turning checks off still receives SECURITY releases (force-install).
   - AUTO ROLLBACK: the previous version is backed up before applying. If the
     new version never takes effect (startup version mismatch) or crashes at
     startup, the app restores the backup and — with the opt-in report
@@ -139,16 +140,51 @@ def is_newer(available, current):
     return bool(a and c and a > c)
 
 
+# ---- skip memory: a version that was installed but crashed is never re-offered
+_SKIP_FILE = os.path.join(paths.CONFIG_DIR, 'update_skip.json')
+
+
+def _read_skips():
+    try:
+        with open(_SKIP_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _write_skips(skips):
+    try:
+        os.makedirs(paths.CONFIG_DIR, exist_ok=True)
+        with open(_SKIP_FILE, 'w') as f:
+            json.dump(skips, f)
+        paths.secure_file(_SKIP_FILE)
+    except Exception:
+        pass
+
+
+def is_skipped(tag):
+    """True when `tag` was installed but crashed and must not be re-offered."""
+    return str(tag) in _read_skips()
+
+
+def skip_tag(tag, reason='crash-rollback'):
+    skips = _read_skips()
+    skips[str(tag)] = {'reason': reason, 'ts': int(time.time())}
+    _write_skips(skips)
+
+
 def check_for_update(urlopen=None):
-    """Return (tag, asset_url, digest, security) of the newest release, or
-    (None, None, None, False). `digest` is the (signed or GitHub) sha256 for
-    the asset; `security` is True for SBT-SECURITY releases, which
-    FORCE-INSTALL regardless of user settings. Metadata-only; `urlopen`
-    injectable for tests."""
+    """Return (tag, asset_url, digest, security) of the NEWEST eligible
+    release, or (None, None, None, False). Enumerates recent releases (any one
+    may be a SECURITY-flagged patch); SKIPS draft/prerelease, the running
+    version, and any version recorded via skip_tag() (a crashed/rolled-back
+    release is never offered again — check for the NEXT one). SIGNED builds
+    fail closed per release: an unsigned/badly-signed release is skipped and
+    scanning continues. `urlopen` injectable for tests."""
     if not (UPDATES_OWNER and UPDATES_REPO):
         return None, None, None, False
     url = (f'https://api.github.com/repos/{UPDATES_OWNER}/{UPDATES_REPO}'
-           f'/releases/latest')
+           f'/releases?per_page=30')
     try:
         req = urllib.request.Request(url, headers={
             'Accept': 'application/vnd.github+json',
@@ -160,30 +196,44 @@ def check_for_update(urlopen=None):
             if resp.status != 200:
                 return None, None, None, False
             data = json.loads(resp.read().decode('utf-8', 'ignore'))
-        tag = (data.get('tag_name') or '').lstrip('v')
-        if not tag:
-            return None, None, None, False
-        # SIGNED UPDATES: when the ship build embeds a public key, the
-        # release notes MUST carry a dev-signed digest (fail closed — a
-        # missing/invalid signature means NO update is offered, so a
-        # compromised GitHub cannot push code to shipped users).
-        body = data.get('body') or ''
-        sig_digest, signature = _parse_signed_digest(body)
-        security = is_security_release(body)
-        if SIGNING_PUBLIC_KEY:
-            if not verify_release_signature(sig_digest, signature):
-                return None, None, None, False
-            return (tag, asset_url_from(data), sig_digest, security)
-        digest = None
-        for a in (data.get('assets') or []):
-            name = a.get('name', '')
-            if name.startswith(ASSET_PREFIX) and name.endswith('.zip'):
-                # GitHub returns 'digest' as 'sha256:<hex>'; keep just the hex
-                d = (a.get('digest') or '')
-                if d.startswith('sha256:'):
-                    digest = d[len('sha256:'):].strip().lower()
-                break
-        return (tag, asset_url_from(data), digest, security)
+        releases = data if isinstance(data, list) else [data]
+        cur = parse_semver(current_version())
+        for rel in releases:
+            if not isinstance(rel, dict):
+                continue
+            if rel.get('draft') or rel.get('prerelease'):
+                continue
+            tag = (rel.get('tag_name') or '').lstrip('v')
+            ver = parse_semver(tag)
+            if not ver:
+                continue
+            if cur and not (ver > cur):
+                continue          # only strictly-newer than what we run
+            if is_skipped(tag):
+                continue          # crashed before -> try the NEXT release
+            body = rel.get('body') or ''
+            sig_digest, signature = _parse_signed_digest(body)
+            security = is_security_release(body)
+            asset_url = asset_url_from(rel)
+            if SIGNING_PUBLIC_KEY:
+                if not verify_release_signature(sig_digest, signature):
+                    continue      # fail-closed for this release; keep scanning
+                if not asset_url:
+                    continue
+                return (tag, asset_url, sig_digest, security)
+            digest = None
+            for a in (rel.get('assets') or []):
+                name = a.get('name', '')
+                if name.startswith(ASSET_PREFIX) and name.endswith('.zip'):
+                    d = (a.get('digest') or '')
+                    if d.startswith('sha256:'):
+                        digest = d[len('sha256:'):].strip().lower()
+                    break
+            if asset_url:
+                return (tag, asset_url, digest, security)
+            if ver:
+                return (tag, None, None, security)   # legacy no-asset offset
+        return None, None, None, False
     except Exception:
         return None, None, None, False
 
@@ -340,6 +390,8 @@ def verify_after_launch():
             pass
         return 'ok'
     restored = restore_backup()
+    if restored:
+        skip_tag(st.get('applied'), 'crash-mismatch')
     _write_state(dict(st, status='rolled_back'))
     return 'rolled_back' if restored else 'rollback_failed'
 
@@ -378,6 +430,8 @@ def maybe_rollback_on_crash():
     if current_version() != st.get('applied'):
         return False  # not the post-update build
     restored = restore_backup()
+    if restored:
+        skip_tag(st.get('applied'), 'startup-crash')
     _write_state(dict(st, status='rolled_back', reason='startup_crash'))
     try:
         from . import report_transport

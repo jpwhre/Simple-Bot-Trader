@@ -138,9 +138,12 @@ class MainWindow(QMainWindow):
                     tag, asset_url, digest, security = \
                         auto_update.check_for_update()
                     if not tag:
+                        self.bot._log('Update check: no newer release '
+                                      '(or network unreachable).', user=True)
                         return
                     if not auto_update.is_newer(tag, auto_update.current_version()):
                         return
+                    self.bot._log(f'Update v{tag} available.', user=True)
                     if not (security
                             or settings.get('auto_update_check', True)):
                         return
@@ -150,7 +153,8 @@ class MainWindow(QMainWindow):
                         0, lambda: self._prompt_update(
                             tag, asset_url, digest, mandatory, security))
                 except Exception:
-                    pass
+                    self.bot._log('Update check failed '
+                                  '(network/offline?).', user=True)
 
             import threading
             threading.Thread(target=work, daemon=True).start()

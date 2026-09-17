@@ -206,12 +206,15 @@ if [ "$PLATFORM" = "linux" ]; then
     fi
     cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
+Version=1.0
 Name=$APP_NAME
+GenericName=Cryptocurrency Trading Bot
 Comment=Cryptocurrency trading bot
 Exec=$APP_DIR/run.sh
 $ICON_LINE
 Terminal=false
 Type=Application
+StartupNotify=true
 Categories=Finance;Office;
 Keywords=crypto;trading;bot;
 EOF

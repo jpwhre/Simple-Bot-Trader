@@ -188,13 +188,26 @@ else
 fi
 [ -f "$STAGE/main.py" ] || fail "release payload is missing main.py."
 
-# ==== install ====
+# ==== install / upgrade ====
 mkdir -p "$DIR"
-if [ -n "$(ls -A "$DIR")" ] && [ "$UPDATE" != "yes" ]; then
-  fail "${DIR} already has files — re-run with --update to refresh the signed app in place, or pick a fresh --dir."
+UPGRADE="no"
+if [ -n "$(ls -A "$DIR" 2>/dev/null)" ]; then
+  if [ -f "$DIR/main.py" ] && [ -d "$DIR/sbt" ]; then
+    UPGRADE="yes"                # re-running the one-liner = update by default
+  elif [ "$UPDATE" != "yes" ]; then
+    fail "${DIR} already has files that are not a Simple Bot Trader install — pick a fresh --dir."
+  fi
 fi
-if [ "$UPDATE" = "yes" ]; then
-  # replace ONLY the shipped app files; venv/ and user files are left untouched
+[ "$UPDATE" = "yes" ] && UPGRADE="yes"
+
+PREV=""
+if [ "$UPGRADE" = "yes" ]; then
+  info "Updating existing install at ${DIR}"
+  # backup ONLY the shipped app files (venv/ + user files stay in place) so a
+  # failed install/update rolls back cleanly.
+  PREV="$TMP/prev.tgz"
+  ( cd "$DIR" && tar czf "$PREV" \
+      main.py run.sh setup.sh setup.bat requirements.txt EULA.txt sbt ) 2>/dev/null || true
   rm -rf "$DIR/sbt"
   rm -f "$DIR/main.py" "$DIR/run.sh" "$DIR/setup.sh" "$DIR/setup.bat" "$DIR/requirements.txt" "$DIR/EULA.txt"
 fi
@@ -203,9 +216,19 @@ info "app files installed to ${DIR}"
 
 # ==== dependencies + desktop launcher ====
 if [ -f "$DIR/setup.sh" ]; then
-  ( cd "$DIR" && bash setup.sh )
+  if ! ( cd "$DIR" && bash setup.sh ); then
+    if [ -n "$PREV" ] && [ -f "$PREV" ]; then
+      warn "Update/install failed - restoring the previous version..."
+      rm -rf "$DIR/sbt"
+      rm -f "$DIR/main.py" "$DIR/run.sh" "$DIR/setup.sh" "$DIR/setup.bat" "$DIR/requirements.txt" "$DIR/EULA.txt"
+      ( cd "$DIR" && tar xzf "$PREV" ) 2>/dev/null || true
+      warn "Previous version restored."
+    fi
+    fail "Setup did not complete."
+  fi
+  [ -n "$PREV" ] && rm -f "$PREV"
 else
-  warn "setup.sh not in this release — skipping dependency install (Python 3.8+ required)."
+  warn "setup.sh not in this release — skipping dependency install (Python 3.9+ required)."
 fi
 
 echo ""
