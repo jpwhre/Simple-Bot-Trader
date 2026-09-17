@@ -31,9 +31,7 @@ jobs:
         run: python -m pip install -r requirements.txt pyinstaller
 
       - name: Build binary (PyInstaller, windowed)
-        run: python -m PyInstaller --noconfirm --clean --name simple-bot-trader \
-             --hidden-import=websocket --hidden-import=ccxt \
-             main.py
+        run: python -m PyInstaller --noconfirm --clean --windowed --name simple-bot-trader --hidden-import=websocket --hidden-import=ccxt main.py
 
       - name: Build Windows installer (Inno Setup)
         if: runner.os == 'Windows'
