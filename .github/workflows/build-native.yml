@@ -1,0 +1,84 @@
+name: build-native
+
+# Build native installers on every release tag: Windows setup.exe (Inno) and
+# macOS .app + dmg. Linux uses the .deb built by tools/build_deb.sh on an
+# Ubuntu/Mint host. No code-signing cert (accepted warning). Artifacts are
+# attached to the matching GitHub release as additional signed-by-digest assets.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps + pyinstaller
+        run: python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build binary (PyInstaller, windowed)
+        run: python -m PyInstaller --noconfirm --clean --windowed --name simple-bot-trader --hidden-import=websocket --hidden-import=ccxt main.py
+
+      - name: Build Windows installer (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+          $ver = $env:GITHUB_REF_NAME.TrimStart('v')
+          if (-not $ver) { $ver = "0.0.0" }
+          $iss = @"
+          [Setup]
+          AppName=Simple Bot Trader
+          AppVersion=$ver
+          DefaultDirName={localappdata}\Programs\SimpleBotTrader
+          DefaultGroupName=Simple Bot Trader
+          UninstallDisplayIcon={app}\simple-bot-trader.exe
+          OutputBaseFilename=SimpleBotTrader-Setup-$ver
+          Compression=lzma2
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64compatible
+          PrivilegesRequired=lowest
+          [Files]
+          Source: "dist\simple-bot-trader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          [Icons]
+          Name: "{autodesktop}\Simple Bot Trader"; Filename: "{app}\simple-bot-trader.exe"; IconFilename: "{app}\_internal\sbt\ui\styles\icon.png"
+          Name: "{autoprograms}\Simple Bot Trader"; Filename: "{app}\simple-bot-trader.exe"; IconFilename: "{app}\_internal\sbt\ui\styles\icon.png"
+          Name: "{autoprograms}\Uninstall Simple Bot Trader"; Filename: "{uninstallexe}"
+          [Run]
+          Filename: "{app}\simple-bot-trader.exe"; Description: "Launch Simple Bot Trader"; Flags: nowait postinstall skipifsilent
+          "@
+          Set-Content -Path installer.iss -Value $iss
+          $iscc = "${env:PROGRAMFILES(X86)}\Inno Setup 6\ISCC.exe"
+          & $iscc /Qp installer.iss
+          Get-ChildItem Output\*.exe | Copy-Item -Destination dist\
+          Copy-Item dist\SimpleBotTrader-Setup-$ver.exe dist\SimpleBotTrader-Setup.exe
+
+      - name: Build macOS dmg
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil create -volname "Simple Bot Trader" -srcfolder dist/simple-bot-trader.app \
+            -ov -format UDZO dist/SimpleBotTrader-${{ github.ref_name }}.dmg
+          cp dist/SimpleBotTrader-${{ github.ref_name }}.dmg dist/SimpleBotTrader.dmg
+
+      - name: Upload artifact to the release (versioned + stable names)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" dist/SimpleBotTrader-* --clobber
+          gh release edit "${{ github.ref_name }}" --draft=false
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
