@@ -366,6 +366,24 @@ class TradingBot:
         tp = float(self.settings.get('take_profit_pct', 0.05) or 0.0)
         return entry * (1 + tp)
 
+    def _fee_adj_entry(self, entry):
+        """Fee-adjusted entry on spot terms ('spot + fee'): the price at which
+        an unrealized trade is actually break-even after the BUY taker fee
+        (you receive size_base×(1−fee) coins for entry×size_base spent, so
+        spot must reach entry / (1−fee) ≈ entry × (1 + fee)). Uses the
+        exchange's CURRENT fee tier (provider-cached). Red/green, P&L and the
+        running peak all reference this breakeven instead of the raw entry."""
+        now = time.time()
+        cached = getattr(self, '_fee_adj_cache', None)
+        ts, fee = cached if cached else (0.0, 0.0)
+        if now - ts > 60:                       # at most one fetch/60s per bot
+            try:
+                fee = self.client.get_trading_fee()
+            except Exception:
+                pass                            # keep the last-known tier
+            self._fee_adj_cache = (now, fee)
+        return entry * (1 + fee)
+
     def effective_dip(self):
         """Dip-bounce used for buys: the user's setting, but never below the
         exchange's CURRENT taker fee + a 0.1% margin. If the user's bounce is
@@ -579,6 +597,7 @@ class TradingBot:
                         if pos.entry_price and pos.entry_price > 0 else 0.0)
                 below_mark = bool(pos.entry_price and pos.entry_price > 0
                                   and price < mark)
+                bep = self._fee_adj_entry(pos.entry_price) if pos.entry_price and pos.entry_price > 0 else 0.0
                 if not self.trailing_stop.active:
                     if below_mark:
                         # HOLD below the mark — the mark is the target; never
@@ -586,6 +605,11 @@ class TradingBot:
                         should_sell = False
                         pos.stop_price = mark
                         self.trailing_stop.reset()
+                        # Peak follows any climb ABOVE the fee-adjusted entry,
+                        # even below the take-profit mark (user: peak froze
+                        # while above entry). Below breakeven it stays put.
+                        if price > bep and (pos.highest_price or 0.0) < price:
+                            pos.highest_price = price
                     else:
                         # Mark reached — ARM the trailing stop AT this price.
                         # From here it follows any climb (peak) and fires on a
@@ -602,9 +626,17 @@ class TradingBot:
                     should_sell = self.trailing_stop.update(price)
                     pos.highest_price = self.trailing_stop.highest_price
                     pos.stop_price = self.trailing_stop.get_stop_price()
-                cpct = ((price - pos.entry_price) / pos.entry_price) if pos.entry_price else 0.0
-                pos.pnl_pct = cpct
-                pos.pnl = cpct * pos.size_usdc
+                # Unrealized P&L is FEE-ADJUSTED ('spot + fee'): break-even is
+                # the fee-adjusted entry, so green starts there and red below.
+                base = pos.size_base or 0.0
+                if base and bep > 0:
+                    pnl = (price - bep) * base
+                    pnl_pct = pnl / (bep * base)
+                else:
+                    pnl = 0.0
+                    pnl_pct = 0.0
+                pos.pnl_pct = pnl_pct
+                pos.pnl = pnl
                 if should_sell:
                     self.state.status = BotStatus.SELLING
                     self.execute_sell()

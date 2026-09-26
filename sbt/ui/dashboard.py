@@ -289,7 +289,11 @@ class DashboardWidget(QFrame):
             if pos and pos.entry_price:
                 pnl = pos.pnl or 0.0
                 pct = (pos.pnl_pct or 0.0) * 100.0
-                self.pnlLabel.setText(tr("P&L: {p}").format(p=f"${pnl:+.2f} ({pct:+.2f}%)"))
+                h_base = pos.size_base if pos.size_base is not None else 0.0
+                h_val = h_base * (cur if cur else (pos.entry_price or 0.0))
+                hb = f"{h_base:.4f}".rstrip('0').rstrip('.')
+                hold = f" · hold {hb} ≈ ${h_val:,.2f}" if h_base else ""
+                self.pnlLabel.setText(tr("P&L: {p}").format(p=f"${pnl:+.2f} ({pct:+.2f}%){hold}"))
                 if pnl > 0:
                     self.pnlLabel.setStyleSheet("color: #00c853;")
                 elif pnl < 0:

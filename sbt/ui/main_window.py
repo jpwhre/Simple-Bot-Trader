@@ -107,10 +107,15 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(3000, self._startup_sync)
 
         # auto-update: check at launch + every 4h WHILE the app is open (never
-        # a background process). Default = check + notify; install is opt-in.
+        # a background process). Default = check + install (opt-out in v0.0.10).
+        # DEV BUILDS NEVER SELF-UPDATE — they ARE the source of the releases
+        # that end users receive, so a dev instance must not pull-release
+        # itself into an older/newer tag while it holds the authoritative code.
         try:
-            from .. import auto_update
-            if self.bot.settings.get('auto_update_check', True):
+            from .. import auto_update, admin
+            if admin.is_admin():
+                pass
+            elif self.bot.settings.get('auto_update_check', True):
                 self._update_timer = QTimer(self)
                 self._update_timer.timeout.connect(self._check_updates)
                 self._update_timer.start(int(auto_update._CHECK_INTERVAL_S * 1000))
