@@ -85,8 +85,9 @@ jobs:
             "$ROOT/usr/share/applications" \
             "$ROOT/usr/share/icons/hicolor/256x256/apps" "$ROOT/DEBIAN"
           cp -a dist/simple-bot-trader/. "$ROOT/opt/simple-bot-trader/"
-          cp dist/simple-bot-trader/_internal/sbt/ui/styles/icon.png \
-            "$ROOT/usr/share/icons/hicolor/256x256/apps/simple-bot-trader.png"
+          ICON="$(find dist/simple-bot-trader -path '*sbt/ui/styles/icon.png' | head -1)"
+          [ -n "$ICON" ] || { echo '[FAIL] icon.png not found in bundle'; exit 2; }
+          cp "$ICON" "$ROOT/usr/share/icons/hicolor/256x256/apps/simple-bot-trader.png"
           cat > "$ROOT/usr/share/applications/simple-bot-trader.desktop" <<'DESK'
           [Desktop Entry]
           Version=1.0
