@@ -1,9 +1,11 @@
 # Simple Bot Trader
 
 A **never-take-a-loss** crypto trading bot: dip-buy → trailing-stop → DCA exit,
-with a fee-adjusted no-loss floor. Exchange API is the source of truth for cost
-basis, balances and fees (no DB-driven guessing). Runs on Linux, macOS and
-Windows as a small desktop app.
+with a fee-adjusted no-loss floor. **Global by design:** multi-exchange
+(Coinbase Advanced Trade + any CCXT-supported exchange) and multi-language —
+the UI auto-detects your OS/keyboard language and translates itself. Exchange
+API is the source of truth for cost basis, balances and fees (no DB-driven
+guessing). Runs on Linux, macOS and Windows as a small desktop app.
 
 ## Features
 
@@ -13,8 +15,16 @@ Windows as a small desktop app.
   take-profit %`); once reached, a trailing stop arms at the peak and closes the
   trade on a pullback — never below the fee-adjusted entry (no loss). DCA keeps
   re-buying dips while holding and stops at the (fee-adjusted) entry.
-- **Multi-exchange** — Coinbase Advanced Trade for live trading; any CCXT
-  exchange (Kraken, Binance, …) via the same engine.
+- **Multi-exchange** — add a native **Coinbase Advanced Trade** key *or* a
+  **CCXT** key for any exchange CCXT supports (Kraken, Binance, …) — one
+  engine, one UI.
+- **Real-time vs polled feeds** — Coinbase uses a native **websocket** (live
+  spot). All other exchanges run through CCXT's REST adapter, which polls the
+  feed at a **2.5 s** interval; a faster/streaming CCXT feed is not yet
+  implemented.
+- **Auto-translation** — the UI reads your **OS/keyboard locale** and switches
+  languages on the fly (en, es, pt, fr, de, zh; English fallback). Detection
+  is fully local — nothing is sent to any detection service.
 - **API-driven** — true cost basis, balances and minimums come from the exchange.
 - **Privacy by design** — zero data collection; the only outbound calls are to
   the exchange API, GitHub releases (update checks) and opt-in crash reports.
@@ -118,13 +128,20 @@ read or alter a payload. No details are sent without your review.
   `setup.sh` detects and offers this automatically during install.
 
 - **Account Balance shows 0 (with the price feed "connected")** — the price
-  feed is public, but balances need a *signed* API call. A zero balance with a
-  connected websocket usually means the stored Coinbase key is invalid (the
-  app now validates keys when you save, and shows "API key error — re-add").
-  Fix: **Settings → Add API → Load from file…** and pick the downloaded
-  `cdp_api_key_<name>.json` — the name and key fill in automatically. Both
-  Coinbase key types are supported: ECDSA (PEM) and Ed25519 (the newer bare
-  base64 download).
+  feed is public, but balances need a *signed* API call; the two use separate
+  paths, so a connected feed does not confirm the key is valid. A zero balance
+  usually means the stored API key is invalid or its permissions don't allow
+  reading balances.
+  - **Coinbase:** the app validates keys when you save and shows "API key
+    error — re-add". Fix: **Settings → Add API → Load from file…** and pick the
+    downloaded `cdp_api_key_<name>.json` — the name and key fill in
+    automatically. Both Coinbase key types are supported: ECDSA (PEM) and
+    Ed25519 (the newer bare base64 download).
+  - **CCXT exchanges (Kraken, Binance, …):** check that the exchange id is
+    spelled exactly as CCXT expects (an unknown id is rejected at Add API),
+    that the key has **read + trade** permissions (never one that can withdraw
+    funds), and remember the balance line runs on the **2.5 s REST poll** —
+    give it one or two poll cycles to appear.
 
 ## Security
 
