@@ -10,7 +10,7 @@ PyJWT==2.13.0            # Coinbase Advanced Trade JWT signing
 websocket-client==1.9.0  # Coinbase price feed
 cryptography==50.0.0     # encrypted key storage (keys.enc) + provider signing
 requests==2.34.2         # Coinbase HTTP API
-ccxt==4.5.70             # multi-exchange abstraction (Kraken/Binance/... via CCXT)
+ccxt==4.5.84             # multi-exchange abstraction (Kraken/Binance/... via CCXT)
 
 # --- ccxt runtime dependency closure (resolved on the tested build) ---------
 # Current Python (3.14) is supported: pin fixes below match ccxt 4.5.70's own
