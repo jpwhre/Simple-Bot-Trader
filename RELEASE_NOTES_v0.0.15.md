@@ -19,5 +19,5 @@ curl -fsSL https://raw.githubusercontent.com/jpwhre/Simple-Bot-Trader/main/insta
 > version.**
 
 ## Signature
-SBT-DIGEST: 871a1ba27b0ea58d595e67ce6d31c4f4b2a389cf1737165575cb64380f4985a0
-SBT-SIGNATURE: b5cc8a027af99c28614cf52105d8e6a6b543d6bf792919c6ca41065d3491a10a42f947b9c4e5ee34f25cd54130599e9ec671ac0a82b31cd62f0f4e266f9bab0d
+SBT-DIGEST: 9d55079d469e54ae9c46eb840bebe1f5d3ecb964a25949ad2d16d9bd667efe0e
+SBT-SIGNATURE: 18ea01e64f073d686255b973984eb5ba429bc01b4e1135baf6862cc5b82cdb4a0075b2a32bdc411e5bb4b64946bb67bde85fa157fc350b130fb2bfebc7debc06
