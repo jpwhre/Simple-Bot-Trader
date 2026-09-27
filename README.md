@@ -97,9 +97,10 @@ installs are installer-driven: download the new signed installer and run it.
 
 ## Bug reports
 
-Reports are scrubbed (OS + reason + version only, nothing else) and open in
-GitHub Issues of the **private** report repository. No details are sent without
-your review.
+Reports are scrubbed (OS + reason + version only, nothing else), **encrypted
+end-to-end and tamper-evident**, and open in GitHub Issues of the **private**
+report repository — neither GitHub nor anyone with access to that repo can
+read or alter a payload. No details are sent without your review.
 
 ## Troubleshooting
 
@@ -124,6 +125,12 @@ your review.
   `cdp_api_key_<name>.json` — the name and key fill in automatically. Both
   Coinbase key types are supported: ECDSA (PEM) and Ed25519 (the newer bare
   base64 download).
+
+## Security
+
+Vulnerability reports are handled privately — see
+[`SECURITY.md`](SECURITY.md) for the reporting policy and the private bug
+inbox. Do not open public issues containing sensitive data.
 
 ## License
 
