@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+venv/
+*.pem
+/Ship Repo/
+
+# never track built installer zips (release assets live on Releases)
+*.zip

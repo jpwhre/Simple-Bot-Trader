@@ -64,11 +64,43 @@ to the app. Modern Linux/macOS block `pip install` to the system Python
 must not collide with other software. `run.sh` uses the venv automatically —
 there is nothing extra to activate.
 
-**Native installers (in development):** Windows builds a `setup.exe` (Inno
-Setup — desktop icon + Start Menu + built-in uninstaller) and macOS an `.app`
-+ dmg on every release tag via GitHub Actions; Linux uses a `tools/build_deb.sh`
-`.deb` (`dpkg -r simple-bot-trader` to uninstall). Updates for the native
-installs are installer-driven: download the new signed installer and run it.
+## Download the app — native installers (double-click)
+
+Installers are built by GitHub Actions on every release tag and attached on the
+**Releases** page. Latest builds (stable links always point at the newest
+release):
+
+- **Windows** — `SimpleBotTrader-Setup.exe`
+  (`https://github.com/jpwhre/Simple-Bot-Trader/releases/latest/download/SimpleBotTrader-Setup.exe`)
+  Double-click → installs to `%LOCALAPPDATA%\Programs\SimpleBotTrader` with a
+  desktop icon, Start Menu entry and built-in uninstaller. First run may show
+  SmartScreen's *"Windows protected your PC"* — click **More info → Run anyway**
+  (why: no paid code-signing cert, below).
+- **macOS** — `SimpleBotTrader.dmg`
+  (`https://github.com/jpwhre/Simple-Bot-Trader/releases/latest/download/SimpleBotTrader.dmg`)
+  Double-click to mount, then drag `Simple Bot Trader.app` into Applications.
+  First launch: **right-click → Open** once to pass Gatekeeper; after that it
+  opens normally.
+- **Linux (Debian/Ubuntu/Mint)** — `SimpleBotTrader.deb`
+  (`https://github.com/jpwhre/Simple-Bot-Trader/releases/latest/download/SimpleBotTrader.deb`)
+  Double-click the file, then **Install** (or `sudo apt install -y
+  ./SimpleBotTrader.deb`). Uninstall: `sudo dpkg -r simple-bot-trader`.
+
+**Why aren't the installers code-signed?** The app is free to use — no paywall,
+no paid tier. Code-signing certificates cost ~$150/year, and this project
+deliberately doesn't pay for one, so Windows/macOS show an "unknown publisher"
+warning on first run. That does **not** mean the download is unprotected: every
+release is wrapped in a **sha256 digest + Ed25519 signature** that the installer
+and in-app updater verify before anything runs — the point of the signing is to
+prevent fraudulent or tampered installs from working, and only the public key
+ships (the private key never leaves the developer machine). The warning only
+says *nobody paid to authenticate the publisher*, not that the bits are fake.
+
+> **Automatic bug reports require the OS-installer build. The curl|bash build
+> keeps reports on your device — even after updates — until you install the OS
+> version.**
+
+## Autostart & return-to-state
 
 ## Autostart & return-to-state
 
@@ -91,15 +123,29 @@ installs are installer-driven: download the new signed installer and run it.
 
 - **In-app:** the bot checks GitHub for new signed releases (opt-out enabled for
   auto-install; update offering is signed and verified before install).
+- **Native installs:** updates are installer-driven — download the new OS
+  installer and run it (the link above always points at the latest).
 - **CLI:** re-run the one-liner above.
 - **Git:** `git -C ~/Simple-Bot-Trader pull` — only if you installed from the
   repo rather than a signed release.
 
+**Reporting-key expiry:** automatic bug reporting relies on a fine-grained
+GitHub token (90-day life) that is rotated as releases are published. If an
+installer's embedded token expires, that build quietly falls back to
+local-only reports for as long as it runs; install a newer release to refresh
+it. New releases are published whenever the token is rotated.
+
 ## Bug reports
 
-Reports are scrubbed (OS + reason + version only, nothing else) and open in
-GitHub Issues of the **private** report repository. No details are sent without
-your review.
+Reports are scrubbed (OS + reason + version + log-chain integrity only, nothing
+else) and post — when enabled — to GitHub Issues of the **private** report
+repository, E2E-encrypted and signed. No details are sent without your review.
+
+**Installers vs curl|bash:** automatic posting is built into the **OS
+installer** binaries (Windows `.exe`, macOS `.dmg`, Linux `.deb`). The
+**curl|bash / zip** build keeps reports local to your device (still written to
+`crash_reports/`) — even after it updates — until you install an OS version.
+It's the price of keeping the posting key out of a public, downloadable zip.
 
 ## Troubleshooting
 
