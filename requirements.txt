@@ -8,7 +8,7 @@ PyQt5==5.15.10
 PyQt5-sip==12.18.0
 PyJWT==2.13.0            # Coinbase Advanced Trade JWT signing
 websocket-client==1.9.0  # Coinbase price feed
-cryptography==49.0.0     # encrypted key storage (keys.enc) + provider signing
+cryptography==50.0.0     # encrypted key storage (keys.enc) + provider signing
 requests==2.34.2         # Coinbase HTTP API
 ccxt==4.5.70             # multi-exchange abstraction (Kraken/Binance/... via CCXT)
 
@@ -20,7 +20,7 @@ ccxt==4.5.70             # multi-exchange abstraction (Kraken/Binance/... via CC
 #   * pyqt5-sip bumped to 12.18.0 so it has cp314 wheels (still satisfies
 #     PyQt5's `>=12.13,<13` requirement).
 aiohappyeyeballs==2.7.1
-aiohttp==3.14.1
+aiohttp==3.14.3
 aiohttp-fast-zlib==0.3.0
 aiosignal==1.4.0
 attrs==26.1.0
