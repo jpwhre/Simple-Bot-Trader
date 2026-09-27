@@ -27,6 +27,29 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Reports token comes from an Actions SECRET, never from the repo. It is
+      # injected into the checkout before PyInstaller, so installers carry it
+      # while the public source stays token-free. Fail closed on releases.
+      - name: Embed report transport token (CI secret)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          REPORTS_TOKEN: ${{ secrets.REPORTS_TOKEN }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          tok = os.environ.get('REPORTS_TOKEN', '')
+          if not tok:
+              raise SystemExit('[FAIL] secrets.REPORTS_TOKEN unset - reporting would ship disabled')
+          p = pathlib.Path('sbt/report_transport.py')
+          s = p.read_text()
+          pat = re.compile(r"REPORTS_TOKEN = os\.environ\.get\('SBT_REPORTS_TOKEN', ''\)")
+          assert pat.search(s), 'REPORTS_TOKEN placeholder not found'
+          s = pat.sub("REPORTS_TOKEN = '" + tok + "'", s, count=1)
+          p.write_text(s)
+          print('[OK] report token embedded in build source (len=%d)' % len(tok))
+          PY
+
       - name: Install deps + pyinstaller
         run: python -m pip install -r requirements.txt pyinstaller
 

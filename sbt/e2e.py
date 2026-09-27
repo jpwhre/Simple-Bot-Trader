@@ -18,8 +18,26 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # ---- ship-time constant: RSA-4096 PUBLIC KEY (PEM) ------------------------
-# Generated 2026-08-24.  Private key stays on dev machine ONLY.
-_E2E_PUBLIC_KEY_PEM = None  # loaded lazily from tools/ or embedded
+# Generated 2026-08-24.  Private key stays on dev machine ONLY.  The PUBLIC key
+# is embedded below so shipped bundles are self-contained (no path dependency).
+_E2E_PUBLIC_KEY_PEM_TEXT = """
+    -----BEGIN PUBLIC KEY-----
+    MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAn1Clx7BdUf8K37m1xVDl
+    DxJ2fON0AqeegzFdQPovYfioXT/BALo7k/Y9IfUV/zzBtic4+njWdEC/wq8U28+8
+    HrVT8o0r83ZY79+0orJwTQXKAvvRYCVw1FF1BqIfKKTpgrO6cTz6L4HFlPDLf7x0
+    bDqSJSnK518vPyQbuO+G+/eDlb6Gla1w9Xo0R1WXFlbieFNjsENt0WdGJM34QNDQ
+    N6fD4O8HbcuKA2jEq7XhHgzKzsJwhZ4Btjt0fZ2o2h9ZEaNKpCj3/gvJvlZbaWaj
+    8g9HyFrksoAiOJJO9OCJPrLkaymIfy3XLQjp9IgqZAW+aDJ1AyujcoBsVNnVoVU2
+    2jZfyEI7i3/i3dXeX4ImFHEG0KMZCrEsueJkpKFlprYtBemzid5/fO+tLzOH67uq
+    gMRUgCY/KkbXxnJmmI5q5XGTAntdzvdUlAP96LBlkueliqnQeEXmmgxyPUjK2QYA
+    ly3xSbm+qrunp7oq/RT05IaMmn6JH6sLwvPjVX7Ptb7Yyz5dRJEg4n4Oxaye/Ybw
+    CC6PXx6fXwCgeLNO6bt7evDgDhX0hjG4LqnlFxVhZw8wOfZmWSPa0vGAbvi8PgVB
+    5i1zI6OhZBB1iXrx8tff/f439daP2WhbxWowKVpfbFBPrOlbYUlHrynpbp5n0WZ9
+    E49RZ3oRLHOacBKepKbNwskCAwEAAQ==
+    -----END PUBLIC KEY-----
+"""
+
+_E2E_PUBLIC_KEY_PEM = None  # loaded lazily (embedded text -> object)
 
 _E2E_PUBLIC_KEY_PATHS = [
     os.path.join(os.path.dirname(__file__), '..', 'tools', 'report_public_key.pem'),
@@ -28,10 +46,17 @@ _E2E_PUBLIC_KEY_PATHS = [
 
 
 def _load_public_key():
-    """Load the RSA-4096 public key for encryption."""
+    """Load the RSA-4096 public key for encryption (embedded text, then paths)."""
     global _E2E_PUBLIC_KEY_PEM
     if _E2E_PUBLIC_KEY_PEM is not None:
         return _E2E_PUBLIC_KEY_PEM
+    try:
+        if _E2E_PUBLIC_KEY_PEM_TEXT:
+            _E2E_PUBLIC_KEY_PEM = serialization.load_pem_public_key(
+                _E2E_PUBLIC_KEY_PEM_TEXT.encode('ascii'))
+            return _E2E_PUBLIC_KEY_PEM
+    except Exception:
+        pass
     for p in _E2E_PUBLIC_KEY_PATHS:
         try:
             if os.path.exists(p):
