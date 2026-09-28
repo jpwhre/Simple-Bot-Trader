@@ -56,6 +56,18 @@ jobs:
       - name: Build binary (PyInstaller, windowed)
         run: python -m PyInstaller --noconfirm --clean --windowed --name simple-bot-trader --hidden-import=websocket --hidden-import=ccxt main.py
 
+      # ROOT-CAUSE FIX (Ubuntu native crash on any text-input click, e.g. a
+      # QSpinBox/QLineEdit caret): PyInstaller bundles its OWN libxkbcommon in
+      # _internal, which SIGSEGVs against the modern system X11/xkb stack when
+      # the xcb platform plugin engages the keyboard/input context. Solution:
+      # drop the bundled copies so Qt loads the system libxkbcommon (Ubuntu 26:
+      # libxkbcommon0/libxkbcommon-x11-0 — declared deb Depends).
+      - name: Drop bundled xkbcommon (use system lib)
+        if: runner.os == 'Linux'
+        run: |
+          rm -f dist/simple-bot-trader/_internal/libxkbcommon*.so*
+          ls dist/simple-bot-trader/_internal/ | grep -i 'xkb' || echo 'bundled xkbcommon removed'
+
       - name: Build Windows installer (Inno Setup)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -151,7 +163,7 @@ jobs:
           Description: Cryptocurrency dip/trailing/DCA trading bot
            Never-take-a-loss crypto trading bot: dip-buy, trailing stop, DCA exit,
            fee-adjusted output, auto-updates. Self-contained Python bundle.
-          Depends: libxcb-cursor0, libxkbcommon-x11-0
+          Depends: libxcb-cursor0, libxkbcommon-x11-0, libxkbcommon0
           CNTL
           cat > "$ROOT/DEBIAN/postinst" <<'POST'
           #!/bin/sh
