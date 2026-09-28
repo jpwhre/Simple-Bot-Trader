@@ -174,3 +174,8 @@ It's the price of keeping the posting key out of a public, downloadable zip.
 ## License
 
 See `EULA.txt` shipped with the app.
+## Follow
+
+- **X / Twitter**: [@jpwhre](https://x.com/jpwhre) — Simple Trading Bot (same
+  handle, avatar and icon across the app, GitHub and X).
+- **GitHub**: [github.com/jpwhre](https://github.com/jpwhre)

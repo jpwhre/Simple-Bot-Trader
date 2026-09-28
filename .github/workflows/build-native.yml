@@ -115,13 +115,25 @@ jobs:
           ICON="$ROOT/opt/simple-bot-trader/sbt/ui/styles/icon.png"
           [ -f "$ICON" ] || { echo '[FAIL] icon.png missing from styles dir'; exit 2; }
           cp "$ICON" "$ROOT/usr/share/icons/hicolor/256x256/apps/simple-bot-trader.png"
+          # Launch wrapper: force CPU/software rendering for Qt. PyInstaller
+          # Qt5 bundles segfault on some Mesa/driver combos (Ubuntu 26 + mesa
+          # 26.x, llvmpipe/radeonsi) during large repaints (e.g. theme change
+          # in Settings). Software OpenGL is invisible for a desktop bot GUI
+          # and sidesteps driver-native crashes entirely.
+          cat > "$ROOT/opt/simple-bot-trader/simple-bot-trader.sh" <<'WRAP'
+          #!/usr/bin/env bash
+          export QT_OPENGL=software
+          export LIBGL_ALWAYS_SOFTWARE=1
+          exec /opt/simple-bot-trader/simple-bot-trader "$@"
+          WRAP
+          chmod 755 "$ROOT/opt/simple-bot-trader/simple-bot-trader.sh"
           cat > "$ROOT/usr/share/applications/simple-bot-trader.desktop" <<'DESK'
           [Desktop Entry]
           Version=1.0
           Name=Simple Bot Trader
           GenericName=Cryptocurrency Trading Bot
           Comment=Cryptocurrency trading bot
-          Exec=/opt/simple-bot-trader/simple-bot-trader
+          Exec=/opt/simple-bot-trader/simple-bot-trader.sh
           Icon=simple-bot-trader
           Terminal=false
           Type=Application

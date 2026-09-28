@@ -17,6 +17,15 @@ set -u
 cd "$(dirname "$0")"
 UNIT="simple-bot-trader.service"
 
+# Qt5 native crash hardening (Linux): force CPU/software rendering. PyInstaller
+# Qt5 bundles segfault on some Mesa/driver combos (e.g. Ubuntu 26 + mesa 26.x)
+# during large repaints like a Settings theme change. Invisible for a desktop
+# bot GUI; sidesteps the driver-native crash entirely.
+if [ "$(uname -s)" = "Linux" ]; then
+  export QT_OPENGL=software
+  export LIBGL_ALWAYS_SOFTWARE=1
+fi
+
 # arg parsing: pull out --config-dir <path> to key the unit + profile markers
 CFGDIR=""
 ARGS=()
