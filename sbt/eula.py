@@ -11,6 +11,8 @@ is used so the gate can never be silently skipped.
 import glob
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 
 from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
@@ -19,7 +21,20 @@ from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
 from .i18n import tr
 from . import paths
 
-_APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _app_dir():
+    """The real app-install root. Source layout: parent of sbt/ (this file is
+    sbt/eula.py). Frozen (PyInstaller one-dir / deb): the directory that holds
+    the executable — next to it live _internal/, the sbt/ resources and
+    EULA.txt. Using dirname(dirname(__file__)) on a frozen install resolves to
+    _internal/, which made 'Un-install' delete only config + _internal and
+    STRAND the binary + launcher (user bug, 2026-09-28)."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+_APP_DIR = _app_dir()
 _EULA_FILE = os.path.join(_APP_DIR, 'EULA.txt')
 # Acceptance is APP-global, not per-profile: stored in the default config root
 # so agreeing once covers every profile (BUG-018). The default root is the
@@ -98,8 +113,42 @@ def uninstall_targets():
     return sorted(t for t in targets if t)
 
 
+def _try_deb_remove():
+    """Best-effort removal of the OS .deb package (root-owned /opt files the
+    user-level rmtree cannot delete). Used ONLY when the app is genuinely
+    installed as the `simple-bot-trader` Debian package; no-op on Windows/mac,
+    source/portable layouts, or when dpkg/pkexec are unavailable."""
+    if not sys.platform.startswith('linux') or not getattr(sys, 'frozen', False):
+        return
+    if not os.path.isdir('/opt/simple-bot-trader'):
+        return
+    dpkg = shutil.which('dpkg')
+    if not dpkg:
+        return
+    try:
+        if subprocess.call([dpkg, '-s', 'simple-bot-trader'],
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL) != 0:
+            return
+    except Exception:
+        return
+    try:
+        if os.geteuid() == 0:
+            cmd = [dpkg, '-r', 'simple-bot-trader']
+        elif shutil.which('pkexec'):
+            cmd = ['pkexec', dpkg, '-r', 'simple-bot-trader']
+        else:
+            cmd = []
+        if cmd:
+            subprocess.call(cmd, timeout=180)
+    except Exception:
+        pass
+
+
 def uninstall():
-    """Remove everything the app owns. Tolerates already-missing paths."""
+    """Remove everything the app owns. Tolerates already-missing paths. For a
+    deb-installed app, also asks (pkexec) to remove the system package so no
+    binary/launcher survives (user bug, 2026-09-28)."""
     for target in uninstall_targets():
         try:
             if os.path.isdir(target) and not os.path.islink(target):
@@ -111,6 +160,7 @@ def uninstall():
                     pass
         except Exception:
             pass
+    _try_deb_remove()
 
 
 class EulaDialog(QDialog):

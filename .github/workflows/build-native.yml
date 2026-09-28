@@ -56,6 +56,15 @@ jobs:
       - name: Build binary (PyInstaller, windowed)
         run: python -m PyInstaller --noconfirm --clean --windowed --name simple-bot-trader --hidden-import=websocket --hidden-import=ccxt main.py
 
+      # Ship the real EULA.txt next to the executable (frozen app root = where
+      # the binary lives). Fixes the "(EULA.txt was not found — placeholder)"
+      # text showing in native installs.
+      - name: Ship EULA.txt (all OS bundles)
+        run: |
+          if [ -d dist/simple-bot-trader ]; then cp EULA.txt dist/simple-bot-trader/EULA.txt; fi
+          if [ -d dist/simple-bot-trader.app ]; then cp EULA.txt dist/simple-bot-trader.app/Contents/MacOS/EULA.txt; fi
+        shell: bash
+
       # ROOT-CAUSE FIX (Ubuntu native crash on any text-input click, e.g. a
       # QSpinBox/QLineEdit caret): PyInstaller bundles its OWN libxkbcommon in
       # _internal, which SIGSEGVs against the modern system X11/xkb stack when
