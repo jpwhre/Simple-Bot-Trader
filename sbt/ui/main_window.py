@@ -140,11 +140,17 @@ class MainWindow(QMainWindow):
                     # checks OFF still receives SECURITY releases (they
                     # force-install; user 2026-08-16). Normal updates stay
                     # silent for that user.
+                    # The periodic background check is QUIET (user, 2026-09-27):
+                    # "no newer release" is not logged on every interval, and a
+                    # flapping network isn't nagged either. We log only when
+                    # something meaningful changes: an update is available, or
+                    # the check transitions to a failure state (was fine, now
+                    # offline) — repeated identical failures stay silent.
+                    state = getattr(self, '_upd_state', 'ok')
                     tag, asset_url, digest, security = \
                         auto_update.check_for_update()
+                    self._upd_state = 'ok'
                     if not tag:
-                        self.bot._log('Update check: no newer release '
-                                      '(or network unreachable).', user=True)
                         return
                     if not auto_update.is_newer(tag, auto_update.current_version()):
                         return
@@ -158,8 +164,10 @@ class MainWindow(QMainWindow):
                         0, lambda: self._prompt_update(
                             tag, asset_url, digest, mandatory, security))
                 except Exception:
-                    self.bot._log('Update check failed '
-                                  '(network/offline?).', user=True)
+                    if getattr(self, '_upd_state', 'ok') != 'fail':
+                        self._upd_state = 'fail'
+                        self.bot._log('Update check failed '
+                                      '(network/offline?).', user=True)
 
             import threading
             threading.Thread(target=work, daemon=True).start()

@@ -14,6 +14,14 @@ import threading
 import time
 import traceback
 
+import faulthandler
+
+# Native-fault visibility: print a best-effort Python-side traceback on ANY
+# thread if the process segfaults/aborts (Qt/Mesa native crashes). Writes to
+# stderr so apport/journal catch it alongside the Ubuntu crash report. The
+# handler is no-op for healthy runs.
+faulthandler.enable(all_threads=True)
+
 # resolve the profile BEFORE importing sbt.* (paths reads SBT_CONFIG_DIR)
 _cfg = None
 try:
