@@ -135,19 +135,27 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # Native update hand-off: the NEW build, once healthy, confirms with a
-        # marker the watcher polls (A/B rollback). And if a previous update was
-        # rolled back, file the report + skip the bad version now.
-        for a in sys.argv:
-            if a.startswith('--update-verify='):
-                _tag = a.split('=', 1)[1]
-                from .native_updater import mark_update_ok
-                QTimer.singleShot(8000, lambda t=_tag: mark_update_ok(t))
-        self._handle_update_failed_markers()
+        # Native update hand-off (END USERS ONLY — a dev/admin build must never
+        # participate in update verify/rollback/reporting; it IS the source).
+        try:
+            from .. import admin as _admin
+            if not _admin.is_admin():
+                for a in sys.argv:
+                    if a.startswith('--update-verify='):
+                        _tag = a.split('=', 1)[1]
+                        from .native_updater import mark_update_ok
+                        QTimer.singleShot(8000, lambda t=_tag: mark_update_ok(t))
+                self._handle_update_failed_markers()
+        except Exception:
+            pass
 
     def _handle_update_failed_markers(self):
         """If a watcher rolled back a broken update, refuse to re-offer it,
-        keep a local crash record, and (opt-in) post the encrypted report."""
+        keep a local crash record, and (opt-in) post the encrypted report.
+        Admins/dev builds: never (no reports from the build machine)."""
+        from .. import admin
+        if admin.is_admin():
+            return
         import glob
         from .. import auto_update, paths, report_transport
         for m in glob.glob(os.path.join(paths.CONFIG_DIR, 'update_failed_*.mrk')):
@@ -169,6 +177,8 @@ class MainWindow(QMainWindow):
                 os.remove(m)
             except Exception:
                 pass
+
+    def _bot_log(self, msg):
         self.dashboard.log_message(msg)
 
     # ---- auto-update (runs only while this window is open) ----------------
