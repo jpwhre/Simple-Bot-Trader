@@ -17,10 +17,17 @@ import traceback
 import faulthandler
 
 # Native-fault visibility: print a best-effort Python-side traceback on ANY
-# thread if the process segfaults/aborts (Qt/Mesa native crashes). Writes to
-# stderr so apport/journal catch it alongside the Ubuntu crash report. The
-# handler is no-op for healthy runs.
-faulthandler.enable(all_threads=True)
+# thread if the process segfaults/aborts (Qt/Mesa native crashes). PyInstaller
+# WINDOWED exes have sys.stderr is None — route to a temp log (handle held so
+# it is never GC'd) so startup cannot fail with 'sys.stderr is None'.
+_FH = None
+try:
+    _FH = sys.stderr
+    if _FH is None:
+        _FH = open(os.path.join(tempfile.gettempdir(), 'sbt_fault.log'), 'ab')
+    faulthandler.enable(all_threads=True, file=_FH)
+except Exception:
+    pass
 
 # resolve the profile BEFORE importing sbt.* (paths reads SBT_CONFIG_DIR)
 _cfg = None

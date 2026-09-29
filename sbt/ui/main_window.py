@@ -1,6 +1,7 @@
 """Main window — ported from the restored app (start/stop guardrail, price feed
 wiring, startup holding-sync, deferred settings)."""
 import os
+import sys
 import time
 
 from PyQt5.QtCore import QTimer
@@ -17,7 +18,18 @@ from .dashboard import DashboardWidget
 from .first_run import FirstRunDialog
 from .settings_dialog import SettingsDialog
 
-WINDOW_ICON = os.path.join(os.path.dirname(__file__), 'styles', 'icon.png')
+def _window_icon_path():
+    """sbt/ui/styles/icon.png. Source: sibling of this module. Frozen
+    (PyInstaller/deb/.app): next to the executable (module __file__ lives in
+    the PYZ, where loose files cannot exist — icon silently missing on native
+    builds before this). Same rule as theme.py._styles_dir."""
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(os.path.abspath(sys.executable)),
+                            'sbt', 'ui', 'styles', 'icon.png')
+    return os.path.join(os.path.dirname(__file__), 'styles', 'icon.png')
+
+
+WINDOW_ICON = _window_icon_path()
 
 
 class MainWindow(QMainWindow):
