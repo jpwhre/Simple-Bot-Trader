@@ -511,6 +511,18 @@ class FirstRunDialog(QDialog):
         # Full trading (default) vs Auto-invest (buy-only). Changeable in Settings.
         cur['holding_mode'] = self._ask_holding_mode()
         save_settings(cur)
+        # Key-handling hint (user, 2026-09-28): the key is now stored ENCRYPTED
+        # inside the app; suggest keeping/deleting any downloaded copy of it.
+        try:
+            QMessageBox.information(
+                self, 'API key stored',
+                'Your API key is stored ENCRYPTED inside this app '
+                '(machine-bound).\n\n'
+                'If you also downloaded the key file to this computer, keep '
+                'it somewhere secure or delete that copy now — the app no '
+                'longer needs it.')
+        except Exception:
+            pass
         self.accept()
 
     def _ask_holding_mode(self):

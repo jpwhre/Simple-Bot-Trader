@@ -38,7 +38,10 @@ DEFAULT_SETTINGS = {
     # exception). Install default OFF = "check + notify only"; turning it on
     # auto-installs with a heads-up, then relaunches and returns to state.
     'auto_update_check': True,
-    'auto_update_install': True,
+    # v0.0.20: auto-install default OFF (opt-in) so nobody's bot self-updates
+    # before the native updater is proven in live testing. Security releases
+    # still force-install regardless of this setting.
+    'auto_update_install': False,
     # EXCHANGE MAINTENANCE NOTICES (user 2026-08-16): polls the exchange's
     # own status endpoint every 30 min and shows a banner at the top of the
     # in-app log when maintenance / an incident is active. Default ON.

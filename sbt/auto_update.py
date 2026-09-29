@@ -42,6 +42,11 @@ _HEADS_UP_S = 10               # heads-up countdown before auto-install
 
 
 def app_dir():
+    """The real app install root. Source: parent of this file's package.
+    Frozen (PyInstaller one-dir / deb / .app): the directory holding the
+    executable (the running binary lives there; PYZ modules can't self-overwrite)."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(os.path.abspath(sys.executable))
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

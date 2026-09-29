@@ -135,7 +135,40 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def _bot_log(self, msg):
+        # Native update hand-off: the NEW build, once healthy, confirms with a
+        # marker the watcher polls (A/B rollback). And if a previous update was
+        # rolled back, file the report + skip the bad version now.
+        for a in sys.argv:
+            if a.startswith('--update-verify='):
+                _tag = a.split('=', 1)[1]
+                from .native_updater import mark_update_ok
+                QTimer.singleShot(8000, lambda t=_tag: mark_update_ok(t))
+        self._handle_update_failed_markers()
+
+    def _handle_update_failed_markers(self):
+        """If a watcher rolled back a broken update, refuse to re-offer it,
+        keep a local crash record, and (opt-in) post the encrypted report."""
+        import glob
+        from .. import auto_update, paths, report_transport
+        for m in glob.glob(os.path.join(paths.CONFIG_DIR, 'update_failed_*.mrk')):
+            tag = os.path.basename(m).replace('update_failed_', '').replace('.mrk', '')
+            try:
+                auto_update.skip_tag(tag, 'rollback')
+                auto_update._write_rollback_report(
+                    {'previous': auto_update.current_version(), 'applied': tag},
+                    True)
+                report_transport.send_in_background(
+                    auto_update._write_rollback_report(
+                        {'previous': auto_update.current_version(), 'applied': tag},
+                        True), 'update',
+                    f'update to v{tag} failed health check — rolled back',
+                    1, getattr(self.bot, 'settings', {}))
+            except Exception:
+                pass
+            try:
+                os.remove(m)
+            except Exception:
+                pass
         self.dashboard.log_message(msg)
 
     # ---- auto-update (runs only while this window is open) ----------------
@@ -166,7 +199,10 @@ class MainWindow(QMainWindow):
                         return
                     if not auto_update.is_newer(tag, auto_update.current_version()):
                         return
-                    self.bot._log(f'Update v{tag} available.', user=True)
+                    self.bot._log(
+                        (f'SECURITY update v{tag} — mandatory install, '
+                         f'auto-off ignored.' if security else
+                         f'Update v{tag} available.'), user=True)
                     if not (security
                             or settings.get('auto_update_check', True)):
                         return
@@ -264,10 +300,29 @@ class MainWindow(QMainWindow):
 
     def _run_install(self, tag, asset_url, digest=None):
         from .. import auto_update
+        from PyQt5.QtWidgets import QApplication
         import threading
 
         def work():
             try:
+                if getattr(sys, 'frozen', False):
+                    # Native install: the zip flow cannot self-replace a frozen
+                    # bundle. Validate the signed native plan, snapshot the
+                    # current version, detach the platform watcher, then quit
+                    # so the installer can replace the running app. Rollback +
+                    # skip + report are handled by the watcher + health marker.
+                    from .native_updater import run as native_run
+                    ok, plan = native_run(tag)
+                    if not ok:
+                        reason = getattr(plan, 'reason', 'unknown error')
+                        QTimer.singleShot(0, lambda r=reason: self.bot._log(
+                            f'Update to v{tag} declined — {r}', user=True))
+                        return
+                    QTimer.singleShot(0, lambda: self.bot._log(
+                        f'Update v{tag} installing — restarting (rollback protected)…',
+                        user=True))
+                    QTimer.singleShot(1500, QApplication.instance().quit)
+                    return
                 ok = auto_update.install_update(tag, asset_url,
                                                 expected_sha256=digest)
             except Exception:

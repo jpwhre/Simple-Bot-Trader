@@ -174,6 +174,24 @@ It's the price of keeping the posting key out of a public, downloadable zip.
 ## License
 
 See `EULA.txt` shipped with the app.
+## Verify your download
+
+The app verifies signed releases automatically. You can check a downloaded
+installer yourself against the signed hash in the release notes:
+
+```bash
+# Linux
+sha256sum SimpleBotTrader-vX.Y.Z.deb
+# macOS
+shasum -a 256 SimpleBotTrader-vX.Y.Z.dmg
+# Windows (PowerShell)
+Get-FileHash .\SimpleBotTrader-Setup-X.Y.Z.exe -Algorithm SHA256
+```
+
+Compare the printed hash to the matching `SBT-SHA256:` line on the release
+page. Release notes themselves are Ed25519-signed (`SBT-NOTES-SIGNATURE`), so a
+tampered asset or a hijacked GitHub account can't slip you a mismatched file.
+
 ## Follow
 
 - **X / Twitter**: [@jpwhre](https://x.com/jpwhre) — Simple Trading Bot (same
