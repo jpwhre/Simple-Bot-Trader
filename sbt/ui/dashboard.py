@@ -23,6 +23,15 @@ def _quote_label(quote):
     return _FIAT_SYMBOLS.get(quote.upper(), quote.upper())
 
 
+def _money(value, quote):
+    """Format a quote-currency amount. Symbols prefix the number ($36.10);
+    crypto quote codes suffix it with a space (36.10 XRP)."""
+    lbl = _quote_label(quote)
+    if lbl in _FIAT_SYMBOLS.values():
+        return f"{lbl}{value:,.2f}"
+    return f"{value:,.2f} {lbl}"
+
+
 class DashboardWidget(QFrame):
     """Qt widgets are NOT thread-safe: the engine + price feed run on a
     background thread, so every widget mutation (log append, connection status)
@@ -291,8 +300,10 @@ class DashboardWidget(QFrame):
                 pct = (pos.pnl_pct or 0.0) * 100.0
                 h_base = pos.size_base if pos.size_base is not None else 0.0
                 h_val = h_base * (cur if cur else (pos.entry_price or 0.0))
-                hb = f"{h_base:.4f}".rstrip('0').rstrip('.')
-                hold = f" · hold {hb} ≈ ${h_val:,.2f}" if h_base else ""
+                # fiat/quote value only — the Size row already shows the base
+                # holding, so the base amount here is redundant (and its width
+                # pushed the window minimum past a half-screen tile).
+                hold = f" · {_money(h_val, qc)}" if h_base else ""
                 self.pnlLabel.setText(tr("P&L: {p}").format(p=f"${pnl:+.2f} ({pct:+.2f}%){hold}"))
                 if pnl > 0:
                     self.pnlLabel.setStyleSheet("color: #00c853;")
