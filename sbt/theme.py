@@ -70,6 +70,18 @@ def _abs_urls(qss, base_dir):
         return qss
 
 
+def _styles_dir():
+    """sbt/ui/styles. Source layout: sibling of this module. Frozen
+    (PyInstaller / deb / .app): next to the executable — a frozen module's
+    __file__ points into the PYZ (_internal) where loose .qss/.png files cannot
+    exist, which silently disabled theme switching on native builds (user bug,
+    2026-09-28)."""
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(os.path.abspath(sys.executable)),
+                            'sbt', 'ui', 'styles')
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'styles')
+
+
 def apply_theme(app, preference=None):
     """Apply the theme stylesheet. `preference` is 'auto' (default), 'light',
     or 'dark' — 'auto' uses desktop detection. Returns True if the applied
@@ -81,7 +93,7 @@ def apply_theme(app, preference=None):
         dark = False
     else:
         dark = detect_dark_theme()
-    styles_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'styles')
+    styles_dir = _styles_dir()
     qss = os.path.join(styles_dir, 'dark.qss' if dark else 'light.qss')
     try:
         if os.path.exists(qss):

@@ -56,13 +56,23 @@ jobs:
       - name: Build binary (PyInstaller, windowed)
         run: python -m PyInstaller --noconfirm --clean --windowed --name simple-bot-trader --hidden-import=websocket --hidden-import=ccxt main.py
 
-      # Ship the real EULA.txt next to the executable (frozen app root = where
-      # the binary lives). Fixes the "(EULA.txt was not found — placeholder)"
-      # text showing in native installs.
-      - name: Ship EULA.txt (all OS bundles)
+      # Ship the real EULA.txt + runtime resources (sbt/ui/styles) next to the
+      # executable (frozen app root = where the binary lives). PyInstaller does
+      # not bundle runtime data, and theme/icon resolve from the app ROOT in
+      # frozen builds (theme.py._styles_dir / main_window). This fixes both the
+      # "(EULA.txt was not found — placeholder)" text and native theme/icon.
+      - name: Ship EULA + styles (all OS bundles)
         run: |
-          if [ -d dist/simple-bot-trader ]; then cp EULA.txt dist/simple-bot-trader/EULA.txt; fi
-          if [ -d dist/simple-bot-trader.app ]; then cp EULA.txt dist/simple-bot-trader.app/Contents/MacOS/EULA.txt; fi
+          for b in dist/simple-bot-trader dist/simple-bot-trader.app; do
+            [ -d "$b" ] || continue
+            case "$b" in
+              *.app) DEST="$b/Contents/MacOS" ;;
+              *)     DEST="$b" ;;
+            esac
+            cp EULA.txt "$DEST/EULA.txt"
+            mkdir -p "$DEST/sbt/ui"
+            cp -a sbt/ui/styles "$DEST/sbt/ui/"
+          done
         shell: bash
 
       # ROOT-CAUSE FIX (Ubuntu native crash on any text-input click, e.g. a
