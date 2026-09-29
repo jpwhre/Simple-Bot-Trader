@@ -164,11 +164,11 @@ It's the price of keeping the posting key out of a public, downloadable zip.
 
 - **Account Balance shows 0 (with the price feed "connected")** — the price
   feed is public, but balances need a *signed* API call. A zero balance with a
-  connected websocket usually means the stored Coinbase key is invalid (the
+  connected websocket usually means the stored exchange key is invalid (the
   app now validates keys when you save, and shows "API key error — re-add").
   Fix: **Settings → Add API → Load from file…** and pick the downloaded
   `cdp_api_key_<name>.json` — the name and key fill in automatically. Both
-  Coinbase key types are supported: ECDSA (PEM) and Ed25519 (the newer bare
+  key types are supported: ECDSA (PEM) and Ed25519 (the newer bare
   base64 download).
 
 ## License
