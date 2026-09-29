@@ -36,12 +36,21 @@ import urllib.request
 from .. import paths
 from .. import auto_update
 
-# Asset file names per kind (versioned, from the release).
+# Asset file names per kind (versioned, from the release). Releases publish the
+# `v`-prefixed versioned name AND a stable name; accept all variants so a
+# rename on GitHub can't silently break the updater.
 _ASSET_NAMES = {
-    'windows': 'SimpleBotTrader-Setup-{tag}.exe',
-    'linux':   'SimpleBotTrader-{tag}.deb',
-    'macos':   'SimpleBotTrader-{tag}.dmg',
+    'windows': ('SimpleBotTrader-Setup-v{tag}.exe', 'SimpleBotTrader-Setup-{tag}.exe',
+                'SimpleBotTrader-Setup.exe'),
+    'linux':   ('SimpleBotTrader-v{tag}.deb', 'SimpleBotTrader-{tag}.deb',
+                'SimpleBotTrader.deb'),
+    'macos':   ('SimpleBotTrader-v{tag}.dmg', 'SimpleBotTrader-{tag}.dmg',
+                'SimpleBotTrader.dmg'),
 }
+
+
+def _asset_candidates(kind_, tag):
+    return [t.format(tag=tag) if '{tag}' in t else t for t in _ASSET_NAMES[kind_]]
 
 
 def frozen():
@@ -140,15 +149,19 @@ def build_plan(tag, urlopen=None):
     if not verify_notes_signature(body):
         return Plan(tag, kind(), '', '', '', 'release notes not signed')
     hashes = parse_asset_hashes(body)
-    name = _ASSET_NAMES[kind()].format(tag=tag)
-    url = sha = ''
-    for a in (rel.get('assets') or []):
-        if a.get('name') == name:
-            url = a.get('browser_download_url') or a.get('url')
-            sha = hashes.get(name, '')
-            break
+    assets = {a.get('name'): a for a in (rel.get('assets') or [])}
+    cands = _asset_candidates(kind(), tag)
+    url = sha = name = ''
+    for cand_name in cands:
+        if cand_name in assets:
+            name = cand_name
+            url = (assets[cand_name].get('browser_download_url')
+                   or assets[cand_name].get('url'))
+            sha = hashes.get(cand_name, '')
+            if sha:
+                break          # prefer the first name that has a signed hash
     if not url:
-        return Plan(tag, kind(), '', '', body, f'no {name} asset')
+        return Plan(tag, kind(), '', '', body, f'no {cands[0]} asset')
     if not sha:
         return Plan(tag, kind(), url, '', body, f'no signed SBT-SHA256 for {name}')
     return Plan(tag, kind(), url, sha, body)
