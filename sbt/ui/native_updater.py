@@ -76,10 +76,14 @@ def _fetch_release(tag, urlopen=None):
 
 def _notes_digest(body):
     """Canonical digest over the notes body EXCLUDING the SBT-NOTES-* lines
-    (so the digest value can live inside the body it signs)."""
+    (so the digest value can live inside the body it signs). Trailing empty
+    lines are dropped on BOTH sides: GitHub adds/strips a blank line around the
+    signature block on edit, which must not change the digest."""
     import hashlib
     lines = [ln for ln in body.splitlines()
              if not ln.startswith(('SBT-NOTES-DIGEST:', 'SBT-NOTES-SIGNATURE:'))]
+    while lines and not lines[-1].strip():
+        lines.pop()
     return hashlib.sha256(('\n'.join(lines) + '\n').encode('utf-8')).hexdigest()
 
 
