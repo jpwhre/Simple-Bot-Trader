@@ -7,7 +7,7 @@ exchange's official API to trade one pair per bot — dip-bounce buys,
 trailing-stop exits, optional DCA, and optional limit (maker/taker) orders —
 with three holding modes: Keep separate (never touches coins the bot didn't
 buy), Combine (manage the whole holding), and Auto-invest takeover (buys dips
-only, never auto-sells — you exit via Force Close).
+only, never auto-sells — you exit via Trim Position %).
 
 Your account, your keys — NEVER Transfer. The app needs only READ and TRADE
 on your API key. NEVER use an API key with Transfer here.
