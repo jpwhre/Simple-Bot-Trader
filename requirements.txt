@@ -36,7 +36,7 @@ propcache==0.5.2
 pycparser==3.0
 setuptools==83.0.0
 typing-extensions==4.16.0
-urllib3==2.7.0
+urllib3==2.8.0
 uvloop==0.22.1; platform_system != "Windows" and implementation_name == "cpython"
 yarl==1.24.2
 zlib-ng==1.0.0
